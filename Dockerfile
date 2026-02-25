@@ -1,17 +1,21 @@
-FROM node:22-alpine AS frontend-build
-WORKDIR /app/client
-COPY client/package*.json ./
+FROM node:22-alpine AS build
+WORKDIR /app
+COPY package.json package-lock.json ./
+COPY client/package.json ./client/
+COPY server/package.json ./server/
 RUN npm ci
-COPY client/ ./
-RUN npm run build
+COPY client/ ./client/
+RUN npm run build --workspace=client
 
 FROM node:22-alpine AS production
 WORKDIR /app
-COPY server/package*.json ./
-RUN npm ci --omit=dev
-COPY server/ ./
-COPY --from=frontend-build /app/client/dist ./public
+COPY package.json package-lock.json ./
+COPY client/package.json ./client/
+COPY server/package.json ./server/
+RUN npm ci --omit=dev --workspace=server
+COPY server/ ./server/
+COPY --from=build /app/client/dist ./server/public
 ENV NODE_ENV=production
 ENV PORT=8080
 EXPOSE 8080
-CMD ["node", "src/index.js"]
+CMD ["node", "server/src/index.js"]
