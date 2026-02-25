@@ -234,6 +234,10 @@ export function renderPastNetDetail(container, params) {
         .filter((s) => s && s.trim())
         .join(', ');
 
+      const dxcc = c.dxccName
+        ? [c.dxccFlag, c.dxccName].filter(Boolean).join(' ')
+        : '\u2014';
+
       const row = el('tr', { className: ['checkin-row', statusClass].filter(Boolean).join(' ') },
         el('td', {}, String(c.serialNo)),
         el('td', { className: 'checkin-row__callsign' }, c.callsign || '\u2014'),
@@ -241,6 +245,7 @@ export function renderPastNetDetail(container, params) {
         el('td', {}, c.statusLabel || ''),
         el('td', {}, location || '\u2014'),
         el('td', {}, c.grid || '\u2014'),
+        el('td', {}, dxcc),
         el('td', {}, c.remarks || '\u2014'),
       );
       tbody.appendChild(row);

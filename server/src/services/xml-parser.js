@@ -1,5 +1,6 @@
 import { XMLParser } from 'fast-xml-parser';
 import { parseStatus } from '../utils/status-parser.js';
+import { lookupDXCC } from '../utils/dxcc.js';
 
 const parser = new XMLParser({
   ignoreAttributes: false,
@@ -88,6 +89,8 @@ export function parseCheckins(xml) {
   const checkins = rawCheckins.map((c) => {
     const rawStatus = (c.Status || '').trim();
     const parsed = parseStatus(rawStatus);
+    const dxccRaw = (c.DXCC || '').trim();
+    const dxccInfo = lookupDXCC(dxccRaw);
     return {
       serialNo: parseInt(c.SerialNo, 10) || 0,
       callsign: (c.Callsign || '').trim(),
@@ -105,7 +108,10 @@ export function parseCheckins(xml) {
       zip: (c.Zip || '').trim(),
       memberId: (c.MemberID || '').trim(),
       country: (c.Country || '').trim(),
-      dxcc: (c.DXCC || '').trim(),
+      dxcc: dxccRaw,
+      dxccName: dxccInfo?.name || '',
+      dxccFlag: dxccInfo?.flag || '',
+      dxccContinent: dxccInfo?.continent || '',
       preferredName: (c.PreferredName || '').trim(),
     };
   });

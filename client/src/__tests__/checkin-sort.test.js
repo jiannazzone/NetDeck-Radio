@@ -17,13 +17,13 @@ function makeCheckin(overrides = {}) {
 }
 
 describe('SORTABLE_COLUMNS', () => {
-  it('has 6 columns', () => {
-    expect(SORTABLE_COLUMNS).toHaveLength(6);
+  it('has 7 columns', () => {
+    expect(SORTABLE_COLUMNS).toHaveLength(7);
   });
 
   it('has expected keys', () => {
     const keys = SORTABLE_COLUMNS.map((c) => c.key);
-    expect(keys).toEqual(['serialNo', 'callsign', 'name', 'status', 'location', 'grid']);
+    expect(keys).toEqual(['serialNo', 'callsign', 'name', 'status', 'location', 'grid', 'dxcc']);
   });
 });
 

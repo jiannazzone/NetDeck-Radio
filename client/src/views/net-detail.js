@@ -77,6 +77,9 @@ export function renderNetDetail(container, params) {
     const location = [c.cityCountry, c.state, c.country]
       .filter((s) => s && s.trim())
       .join(', ');
+    const dxcc = c.dxccName
+      ? [c.dxccFlag, c.dxccName].filter(Boolean).join(' ')
+      : '\u2014';
     return [
       String(c.serialNo),
       c.callsign || '\u2014',
@@ -84,6 +87,7 @@ export function renderNetDetail(container, params) {
       c.statusLabel || '',
       location || '\u2014',
       c.grid || '\u2014',
+      dxcc,
       c.remarks || '\u2014',
     ];
   }
@@ -184,6 +188,7 @@ export function renderNetDetail(container, params) {
           el('td', {}, cells[4]),
           el('td', {}, cells[5]),
           el('td', {}, cells[6]),
+          el('td', {}, cells[7]),
         ];
         const row = el('tr', { className }, ...cellEls);
         tbody.appendChild(row);

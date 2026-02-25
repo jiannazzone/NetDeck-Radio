@@ -5,6 +5,7 @@ export const SORTABLE_COLUMNS = [
   { key: 'status', label: 'Status', getValue: (c) => (c.statusLabel || '').toLowerCase() },
   { key: 'location', label: 'Location', getValue: (c) => [c.cityCountry, c.state, c.country].filter((s) => s && s.trim()).join(', ').toLowerCase() },
   { key: 'grid', label: 'Grid', getValue: (c) => (c.grid || '').toLowerCase() },
+  { key: 'dxcc', label: 'DXCC', getValue: (c) => (c.dxccName || '').toLowerCase() },
 ];
 
 export function sortCheckins(checkins, sortColumn, sortDirection) {

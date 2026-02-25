@@ -79,7 +79,11 @@
 
 /* === BODY === */
 body {
-  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  margin: 0;
+  overflow: hidden;
   background: var(--bg);
   background-image: var(--bg-warm);
   background-attachment: fixed;
@@ -121,8 +125,7 @@ a:hover {
 
 /* === HEADER === */
 .app-header {
-  position: sticky;
-  top: 0;
+  flex-shrink: 0;
   z-index: 100;
   height: var(--header-h);
   background: rgba(8, 9, 13, 0.82);
@@ -204,9 +207,15 @@ a:hover {
 
 /* === MAIN CONTENT === */
 #app {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
   max-width: 1260px;
+  width: 100%;
   margin: 0 auto;
-  padding: 24px 20px 60px;
+  padding: 24px 20px 20px;
+  box-sizing: border-box;
   transition: opacity 0.12s ease;
 }
 #app.view-exit { opacity: 0; }
@@ -472,6 +481,10 @@ a:hover {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(310px, 1fr));
   gap: 14px;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  align-content: start;
 }
 
 /* === NET CARD === */
@@ -569,7 +582,9 @@ a:hover {
 /* === TABLE CONTAINER === */
 .table-container {
   position: relative;
-  overflow-x: auto;
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
   -webkit-overflow-scrolling: touch;
   border-radius: var(--radius);
   border: 1px solid var(--border);
@@ -603,7 +618,7 @@ a:hover {
   letter-spacing: 0.06em;
   position: sticky;
   top: 0;
-  z-index: 1;
+  z-index: 2;
 }
 
 .checkin-table td,
@@ -823,7 +838,7 @@ a:hover {
 /* === RESPONSIVE === */
 @media (max-width: 640px) {
   #app {
-    padding: 16px 12px 40px;
+    padding: 16px 12px 12px;
   }
 
   .net-grid {
