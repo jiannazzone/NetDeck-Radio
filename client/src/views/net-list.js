@@ -10,6 +10,9 @@ export function renderNetList(container) {
   let ageTimer = null;
   let searchTimer = null;
 
+  const cardMap = new Map(); // key -> { card, nameEl, freqEl, bandEl, metaEl, statsEl, net }
+  let isFirstRender = true;
+
   container.innerHTML = '';
 
   const searchInput = el('input', {
@@ -65,27 +68,96 @@ export function renderNetList(container) {
 
   let lastUpdate = Date.now();
 
-  function renderCards() {
-    grid.innerHTML = '';
-    const filtered = searchTerm
-      ? nets.filter((n) => n.netName.toLowerCase().includes(searchTerm.toLowerCase()))
-      : nets;
+  function netKey(net) {
+    return `${net.serverName}::${net.netName}`;
+  }
 
-    netCount.textContent = searchTerm
-      ? `${filtered.length} of ${nets.length}`
-      : `${nets.length} nets`;
-
-    if (nets.length === 0) {
-      grid.appendChild(el('p', { className: 'empty-state empty-state--dim' }, 'No active nets right now.'));
-      return;
+  function createCard(net, index) {
+    const metaItems = [];
+    if (net.netControl) {
+      metaItems.push(el('span', { className: 'net-card__meta-item' },
+        el('span', { className: 'net-card__meta-label' }, 'NCS'),
+        ` ${net.netControl}`,
+      ));
+    }
+    if (net.logger) {
+      metaItems.push(el('span', { className: 'net-card__meta-item' },
+        el('span', { className: 'net-card__meta-label' }, 'Log'),
+        ` ${net.logger}`,
+      ));
     }
 
-    if (filtered.length === 0) {
-      grid.appendChild(el('p', { className: 'empty-state' }, 'No nets match your search.'));
-      return;
+    const statsItems = [];
+    if (net.subscriberCount > 0) {
+      statsItems.push(el('span', {}, `${net.subscriberCount} monitoring`));
+    }
+    if (net.date) {
+      statsItems.push(el('span', {}, formatNetDuration(net.date)));
     }
 
-    filtered.forEach((net, index) => {
+    const freqText = net.frequency
+      ? `${net.frequency}${net.mode ? ` ${net.mode}` : ''}`
+      : '\u2014';
+
+    const nameEl = el('h3', { className: 'net-card__name' }, net.netName);
+    const freqEl = el('div', { className: 'net-card__freq' }, freqText);
+    const bandEl = net.band ? el('div', { className: 'net-card__band' }, net.band) : null;
+    const metaEl = el('div', { className: 'net-card__meta' }, ...metaItems);
+    const statsEl = el('div', { className: 'net-card__stats' }, ...statsItems);
+
+    const children = [nameEl, freqEl];
+    if (bandEl) children.push(bandEl);
+    children.push(metaEl, statsEl);
+
+    const card = el('a', {
+      className: 'net-card',
+      href: `#/net/${encodeURIComponent(net.serverName)}/${encodeURIComponent(net.netName)}`,
+      'aria-label': net.netName,
+    }, ...children);
+
+    if (isFirstRender) {
+      // Stagger card entrance animation on initial load
+      card.style.animationDelay = `${index * 0.04}s`;
+    } else {
+      // New net appearing after initial load — green glow entrance
+      card.classList.add('net-card--new');
+      card.addEventListener('animationend', () => {
+        card.classList.remove('net-card--new');
+      }, { once: true });
+    }
+
+    return { card, nameEl, freqEl, bandEl, metaEl, statsEl, net };
+  }
+
+  function updateCard(entry, net) {
+    const prev = entry.net;
+
+    // Update frequency + mode
+    const freqText = net.frequency
+      ? `${net.frequency}${net.mode ? ` ${net.mode}` : ''}`
+      : '\u2014';
+    const prevFreqText = prev.frequency
+      ? `${prev.frequency}${prev.mode ? ` ${prev.mode}` : ''}`
+      : '\u2014';
+    if (freqText !== prevFreqText) {
+      entry.freqEl.textContent = freqText;
+    }
+
+    // Update band
+    if (net.band !== prev.band) {
+      if (net.band && entry.bandEl) {
+        entry.bandEl.textContent = net.band;
+      } else if (net.band && !entry.bandEl) {
+        entry.bandEl = el('div', { className: 'net-card__band' }, net.band);
+        entry.card.insertBefore(entry.bandEl, entry.metaEl);
+      } else if (!net.band && entry.bandEl) {
+        entry.bandEl.remove();
+        entry.bandEl = null;
+      }
+    }
+
+    // Update meta (NCS / Logger)
+    if (net.netControl !== prev.netControl || net.logger !== prev.logger) {
       const metaItems = [];
       if (net.netControl) {
         metaItems.push(el('span', { className: 'net-card__meta-item' },
@@ -99,7 +171,11 @@ export function renderNetList(container) {
           ` ${net.logger}`,
         ));
       }
+      entry.metaEl.replaceChildren(...metaItems);
+    }
 
+    // Update stats (subscriber count / duration)
+    if (net.subscriberCount !== prev.subscriberCount || net.date !== prev.date) {
       const statsItems = [];
       if (net.subscriberCount > 0) {
         statsItems.push(el('span', {}, `${net.subscriberCount} monitoring`));
@@ -107,28 +183,71 @@ export function renderNetList(container) {
       if (net.date) {
         statsItems.push(el('span', {}, formatNetDuration(net.date)));
       }
+      entry.statsEl.replaceChildren(...statsItems);
+    }
 
-      const freqText = net.frequency
-        ? `${net.frequency}${net.mode ? ` ${net.mode}` : ''}`
-        : '\u2014';
+    // Update href in case serverName changed (unlikely but safe)
+    const href = `#/net/${encodeURIComponent(net.serverName)}/${encodeURIComponent(net.netName)}`;
+    if (entry.card.getAttribute('href') !== href) {
+      entry.card.setAttribute('href', href);
+    }
 
-      const card = el('a', {
-        className: 'net-card',
-        href: `#/net/${encodeURIComponent(net.serverName)}/${encodeURIComponent(net.netName)}`,
-        'aria-label': net.netName,
-      },
-        el('h3', { className: 'net-card__name' }, net.netName),
-        el('div', { className: 'net-card__freq' }, freqText),
-        ...(net.band ? [el('div', { className: 'net-card__band' }, net.band)] : []),
-        el('div', { className: 'net-card__meta' }, ...metaItems),
-        el('div', { className: 'net-card__stats' }, ...statsItems),
-      );
+    entry.net = net;
+  }
 
-      // Stagger card entrance animation
-      card.style.animationDelay = `${index * 0.04}s`;
+  function syncCards() {
+    const incomingKeys = new Set();
 
-      grid.appendChild(card);
+    nets.forEach((net, index) => {
+      const key = netKey(net);
+      incomingKeys.add(key);
+
+      const existing = cardMap.get(key);
+      if (existing) {
+        updateCard(existing, net);
+      } else {
+        const entry = createCard(net, index);
+        cardMap.set(key, entry);
+      }
     });
+
+    // Remove cards for nets that are no longer active
+    for (const [key, entry] of cardMap) {
+      if (!incomingKeys.has(key)) {
+        entry.card.remove();
+        cardMap.delete(key);
+      }
+    }
+
+    isFirstRender = false;
+  }
+
+  function renderCards() {
+    const filtered = searchTerm
+      ? nets.filter((n) => n.netName.toLowerCase().includes(searchTerm.toLowerCase()))
+      : nets;
+
+    netCount.textContent = searchTerm
+      ? `${filtered.length} of ${nets.length}`
+      : `${nets.length} nets`;
+
+    if (nets.length === 0) {
+      grid.replaceChildren(el('p', { className: 'empty-state empty-state--dim' }, 'No active nets right now.'));
+      return;
+    }
+
+    if (filtered.length === 0) {
+      grid.replaceChildren(el('p', { className: 'empty-state' }, 'No nets match your search.'));
+      return;
+    }
+
+    // Collect cards in filtered order — cards not matching search are simply detached
+    const filteredCards = filtered.map((net) => {
+      const entry = cardMap.get(netKey(net));
+      return entry ? entry.card : null;
+    }).filter(Boolean);
+
+    grid.replaceChildren(...filteredCards);
   }
 
   function onUpdate(data) {
@@ -136,6 +255,7 @@ export function renderNetList(container) {
     age = data.age ?? 0;
     lastUpdate = Date.now();
     loading.style.display = 'none';
+    syncCards();
     renderCards();
     updateFreshness();
   }

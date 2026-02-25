@@ -485,6 +485,7 @@ a:hover {
   min-height: 0;
   overflow-y: auto;
   align-content: start;
+  padding-top: 4px;
 }
 
 /* === NET CARD === */
@@ -513,6 +514,23 @@ a:hover {
     opacity: 0;
     transform: translateY(10px);
   }
+}
+
+@keyframes cardNew {
+  from {
+    opacity: 0;
+    transform: translateY(-12px);
+    box-shadow: 0 0 16px rgba(62, 207, 142, 0.3);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+    box-shadow: none;
+  }
+}
+
+.net-card--new {
+  animation: cardNew 0.5s ease-out;
 }
 
 .net-card__name {
