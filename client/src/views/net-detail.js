@@ -35,6 +35,12 @@ export function renderNetDetail(container, params) {
   let lastUpdate = Date.now();
   let sortColumn = 'serialNo';
   let sortDirection = 'asc';
+  let prevPointer = 0;
+  const rowMap = new Map();   // serialNo -> { row, cellEls, cellValues, className }
+  let table = null;
+  let tbody = null;
+  let prevSortKey = null;
+  let prevSortDir = null;
 
   container.innerHTML = '';
 
@@ -82,16 +88,28 @@ export function renderNetDetail(container, params) {
     renderTable();
   }
 
-  function renderTable() {
-    tableContainer.innerHTML = '';
-    checkinCount.textContent = `${checkins.length} checkins`;
+  function getRowCells(c) {
+    const location = [c.cityCountry, c.state, c.country]
+      .filter((s) => s && s.trim())
+      .join(', ');
+    return [
+      String(c.serialNo),
+      c.callsign || '\u2014',
+      c.preferredName || c.firstName || '\u2014',
+      c.statusLabel || '',
+      location || '\u2014',
+      c.grid || '\u2014',
+      c.remarks || '\u2014',
+    ];
+  }
 
-    if (checkins.length === 0) {
-      tableContainer.appendChild(el('p', { className: 'empty-state' }, 'No checkins yet.'));
-      return;
-    }
+  function getRowClassName(c, isPointer) {
+    const statusClass = getStatusClass(c.statusType || 'regular');
+    return ['checkin-row', statusClass, isPointer ? 'checkin-row--pointer' : '']
+      .filter(Boolean).join(' ');
+  }
 
-    const table = el('table', { className: 'checkin-table' });
+  function buildThead() {
     const headerCells = SORTABLE_COLUMNS.map((col) => {
       const isActive = sortColumn === col.key;
       const indicator = isActive
@@ -104,38 +122,106 @@ export function renderNetDetail(container, params) {
       }, col.label, indicator);
     });
     headerCells.push(el('th', { scope: 'col' }, 'Remarks'));
+    return el('thead', {}, el('tr', {}, ...headerCells));
+  }
 
-    const thead = el('thead', {}, el('tr', {}, ...headerCells));
-    table.appendChild(thead);
+  function renderTable() {
+    checkinCount.textContent = `${checkins.length} checkins`;
+
+    if (checkins.length === 0) {
+      if (table) {
+        table.remove();
+        table = null;
+        tbody = null;
+      }
+      rowMap.clear();
+      if (!tableContainer.querySelector('.empty-state')) {
+        tableContainer.innerHTML = '';
+        tableContainer.appendChild(el('p', { className: 'empty-state' }, 'No checkins yet.'));
+      }
+      prevPointer = pointer;
+      return;
+    }
+
+    // Build table shell on first render
+    if (!table) {
+      tableContainer.innerHTML = '';
+      table = el('table', { className: 'checkin-table' });
+      table.appendChild(buildThead());
+      tbody = el('tbody');
+      table.appendChild(tbody);
+      tableContainer.appendChild(table);
+      prevSortKey = sortColumn;
+      prevSortDir = sortDirection;
+    }
+
+    // Rebuild thead only when sort changes
+    if (sortColumn !== prevSortKey || sortDirection !== prevSortDir) {
+      const oldThead = table.querySelector('thead');
+      if (oldThead) oldThead.remove();
+      table.insertBefore(buildThead(), tbody);
+      prevSortKey = sortColumn;
+      prevSortDir = sortDirection;
+    }
 
     const sorted = sortCheckins(checkins, sortColumn, sortDirection);
-    const tbody = el('tbody');
+    const incomingKeys = new Set(sorted.map((c) => c.serialNo));
+
+    // Diff rows: update existing, create new
     for (const c of sorted) {
       const isPointer = c.serialNo === pointer;
-      const statusClass = getStatusClass(c.statusType || 'regular');
-      const classes = [
-        'checkin-row',
-        statusClass,
-        isPointer ? 'checkin-row--pointer' : '',
-      ].filter(Boolean).join(' ');
+      const cells = getRowCells(c);
+      const className = getRowClassName(c, isPointer);
+      const existing = rowMap.get(c.serialNo);
 
-      const location = [c.cityCountry, c.state, c.country]
-        .filter((s) => s && s.trim())
-        .join(', ');
-
-      const row = el('tr', { className: classes },
-        el('td', {}, String(c.serialNo)),
-        el('td', { className: 'checkin-row__callsign' }, c.callsign || '\u2014'),
-        el('td', {}, c.preferredName || c.firstName || '\u2014'),
-        el('td', {}, c.statusLabel || ''),
-        el('td', {}, location || '\u2014'),
-        el('td', {}, c.grid || '\u2014'),
-        el('td', {}, c.remarks || '\u2014'),
-      );
-      tbody.appendChild(row);
+      if (existing) {
+        // Patch changed cells
+        for (let i = 0; i < cells.length; i++) {
+          if (existing.cellValues[i] !== cells[i]) {
+            existing.cellEls[i].textContent = cells[i];
+            existing.cellValues[i] = cells[i];
+          }
+        }
+        // Patch className
+        if (existing.className !== className) {
+          existing.row.className = className;
+          existing.className = className;
+        }
+        // appendChild moves existing nodes to correct sort position
+        tbody.appendChild(existing.row);
+      } else {
+        // Create new row
+        const cellEls = [
+          el('td', {}, cells[0]),
+          el('td', { className: 'checkin-row__callsign' }, cells[1]),
+          el('td', {}, cells[2]),
+          el('td', {}, cells[3]),
+          el('td', {}, cells[4]),
+          el('td', {}, cells[5]),
+          el('td', {}, cells[6]),
+        ];
+        const row = el('tr', { className }, ...cellEls);
+        tbody.appendChild(row);
+        rowMap.set(c.serialNo, { row, cellEls, cellValues: cells, className });
+      }
     }
-    table.appendChild(tbody);
-    tableContainer.appendChild(table);
+
+    // Remove rows no longer present
+    for (const [serialNo, entry] of rowMap) {
+      if (!incomingKeys.has(serialNo)) {
+        entry.row.remove();
+        rowMap.delete(serialNo);
+      }
+    }
+
+    // Scroll to pointer row on change
+    if (pointer !== prevPointer && pointer !== 0) {
+      const pointerRow = tbody?.querySelector('.checkin-row--pointer');
+      if (pointerRow) {
+        pointerRow.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+    }
+    prevPointer = pointer;
   }
 
   function onUpdate(data) {

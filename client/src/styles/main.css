@@ -566,6 +566,7 @@ a:hover {
 
 /* === TABLE CONTAINER === */
 .table-container {
+  position: relative;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
   border-radius: var(--radius);
@@ -668,9 +669,60 @@ a:hover {
 }
 
 /* === POINTER ROW (currently working station) === */
+@keyframes pointerRowEnter {
+  0%   { background: rgba(232, 161, 53, 0.25); }
+  100% { background: var(--pointer-bg); }
+}
+
+@keyframes pointerBarEnter {
+  0%   { transform: scaleY(0); background: #fff; box-shadow: 0 0 12px rgba(255, 255, 255, 0.4); }
+  40%  { transform: scaleY(1); background: var(--amber); }
+  100% { transform: scaleY(1); background: var(--amber); box-shadow: 0 0 8px rgba(232, 161, 53, 0.3); }
+}
+
+@keyframes pointerBarPulse {
+  0%, 100% { box-shadow: 0 0 6px rgba(232, 161, 53, 0.25); }
+  50%      { box-shadow: 0 0 12px rgba(232, 161, 53, 0.45); }
+}
+
+@keyframes pointerSweep {
+  0%   { left: -100%; opacity: 1; }
+  100% { left: 100%; opacity: 0; }
+}
+
 .checkin-row--pointer {
+  position: relative;
   background: var(--pointer-bg) !important;
-  border-left: 3px solid var(--pointer-border);
+  animation: pointerRowEnter 0.5s ease-out;
+}
+
+/* Left amber bar via ::before */
+.checkin-row--pointer::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: var(--amber);
+  border-radius: 0 2px 2px 0;
+  z-index: 2;
+  transform-origin: center;
+  animation: pointerBarEnter 0.4s ease-out,
+             pointerBarPulse 2.5s ease-in-out 0.4s infinite;
+}
+
+/* Scan-line sweep via ::after */
+.checkin-row--pointer::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 60%;
+  background: linear-gradient(90deg, transparent, rgba(232, 161, 53, 0.08), transparent);
+  z-index: 1;
+  pointer-events: none;
+  animation: pointerSweep 0.55s ease-out forwards;
 }
 
 .checkin-row--pointer td {
@@ -803,6 +855,11 @@ a:hover {
     left: 32px;
     background: var(--surface);
     z-index: 1;
+  }
+
+  .checkin-row--pointer td:first-child,
+  .checkin-row--pointer td:nth-child(2) {
+    background: rgba(14, 18, 25, 0.92) !important;
   }
 
   .segment-control {
