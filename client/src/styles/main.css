@@ -64,12 +64,18 @@
   --font-body: 'Figtree', -apple-system, sans-serif;
   --font-mono: 'IBM Plex Mono', 'SF Mono', monospace;
 
+  /* Font scale (toggled via .font-large / .font-compact) */
+  --font-scale: 1;
+
   font-family: var(--font-body);
-  font-size: 15px;
+  font-size: calc(15.5px * var(--font-scale));
   line-height: 1.55;
   color: var(--text);
   background: var(--bg);
 }
+
+:root.font-large { --font-scale: 1.12; }
+:root.font-compact { --font-scale: 0.92; }
 
 /* === BODY === */
 body {
@@ -167,7 +173,7 @@ a:hover {
 .app-header__link {
   padding: 6px 14px;
   border-radius: var(--radius-sm);
-  font-size: 13px;
+  font-size: 13.5px;
   font-weight: 500;
   color: var(--text-3);
   transition: background 0.15s, color 0.15s;
@@ -189,7 +195,9 @@ a:hover {
   max-width: 1260px;
   margin: 0 auto;
   padding: 24px 20px 60px;
+  transition: opacity 0.12s ease;
 }
+#app.view-exit { opacity: 0; }
 
 /* === VIEW HEADER === */
 .view-header {
@@ -250,7 +258,7 @@ a:hover {
   background: var(--surface);
   color: var(--text);
   font-family: var(--font-body);
-  font-size: 13.5px;
+  font-size: calc(14px * var(--font-scale));
   font-weight: 400;
   outline: none;
   transition: border-color 0.2s, box-shadow 0.2s;
@@ -286,7 +294,7 @@ a:hover {
   background: transparent;
   color: var(--text-3);
   font-family: var(--font-body);
-  font-size: 12.5px;
+  font-size: calc(13px * var(--font-scale));
   font-weight: 500;
   cursor: pointer;
   transition: all 0.15s;
@@ -318,6 +326,21 @@ a:hover {
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--green);
+  transition: color 0.2s;
+}
+
+.live-indicator--warn {
+  color: var(--amber);
+}
+
+.live-indicator--warn .live-dot {
+  background: var(--amber);
+  animation: livePulseWarn 1.2s ease-in-out infinite;
+}
+
+@keyframes livePulseWarn {
+  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(232, 161, 53, 0.5); }
+  50% { opacity: 0.4; box-shadow: 0 0 0 5px rgba(232, 161, 53, 0); }
 }
 
 .live-dot {
@@ -366,7 +389,7 @@ a:hover {
   text-align: center;
   padding: 60px 0;
   color: var(--text-3);
-  font-size: 14px;
+  font-size: calc(15px * var(--font-scale));
 }
 
 .loading::after {
@@ -389,14 +412,45 @@ a:hover {
   text-align: center;
   padding: 60px 0;
   color: var(--text-4);
-  font-size: 14px;
+  font-size: calc(15px * var(--font-scale));
 }
 
 .error {
   text-align: center;
   padding: 60px 0;
   color: var(--status-vip);
-  font-size: 14px;
+  font-size: calc(15px * var(--font-scale));
+}
+
+.empty-state--dim {
+  color: var(--text-4);
+}
+
+.error-state {
+  text-align: center;
+  padding: 48px 0;
+  color: var(--status-vip);
+  font-size: calc(15px * var(--font-scale));
+}
+
+.retry-btn {
+  display: inline-block;
+  margin-top: 14px;
+  padding: 8px 22px;
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.retry-btn:hover {
+  background: var(--surface-3);
+  border-color: var(--amber-soft);
 }
 
 /* === NET GRID === */
@@ -436,7 +490,7 @@ a:hover {
 
 .net-card__name {
   font-family: var(--font-display);
-  font-size: 15.5px;
+  font-size: calc(16.5px * var(--font-scale));
   font-weight: 700;
   margin-bottom: 10px;
   line-height: 1.3;
@@ -445,7 +499,7 @@ a:hover {
 
 .net-card__freq {
   font-family: var(--font-mono);
-  font-size: 14px;
+  font-size: calc(15px * var(--font-scale));
   font-weight: 500;
   color: var(--amber);
   margin-bottom: 4px;
@@ -455,7 +509,7 @@ a:hover {
 .net-card__band {
   display: inline-block;
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: calc(12px * var(--font-scale));
   font-weight: 600;
   background: var(--amber-dim);
   color: var(--amber);
@@ -468,7 +522,7 @@ a:hover {
 .net-card__meta {
   display: flex;
   gap: 14px;
-  font-size: 12.5px;
+  font-size: calc(13px * var(--font-scale));
   color: var(--text-2);
   margin-bottom: 10px;
   padding-bottom: 10px;
@@ -488,7 +542,7 @@ a:hover {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: 12px;
+  font-size: calc(13px * var(--font-scale));
   color: var(--text-3);
 }
 
@@ -505,6 +559,11 @@ a:hover {
   border-radius: var(--radius);
   border: 1px solid var(--border);
   background: var(--surface);
+  animation: fadeIn 0.2s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
 }
 
 /* === TABLES (shared) === */
@@ -512,7 +571,7 @@ a:hover {
 .past-nets-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 13.5px;
+  font-size: calc(14.5px * var(--font-scale));
   table-layout: auto;
 }
 
@@ -524,7 +583,7 @@ a:hover {
   border-bottom: 1px solid var(--border);
   color: var(--text-3);
   font-weight: 600;
-  font-size: 11px;
+  font-size: calc(11.5px * var(--font-scale));
   text-transform: uppercase;
   letter-spacing: 0.06em;
   position: sticky;
@@ -550,7 +609,7 @@ a:hover {
 .checkin-row__callsign {
   font-family: var(--font-mono);
   font-weight: 600;
-  font-size: 13px;
+  font-size: calc(14px * var(--font-scale));
   color: var(--text);
   letter-spacing: 0.02em;
 }
@@ -580,6 +639,15 @@ a:hover {
 .past-net-row td:first-child {
   font-weight: 600;
   color: var(--text);
+}
+
+/* === CHECKIN ROW HOVER === */
+.checkin-row {
+  transition: background 0.12s;
+}
+
+.checkin-row:hover {
+  background: var(--surface-2);
 }
 
 /* === POINTER ROW (currently working station) === */
@@ -620,6 +688,62 @@ a:hover {
 
 .status--no-response { background: rgba(74, 222, 128, 0.06); }
 .status--no-response .checkin-row__callsign { color: var(--status-no-response); }
+
+/* === FONT SIZE TOGGLE === */
+.font-size-btn {
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text-2);
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  line-height: 1.4;
+}
+
+.font-size-btn:hover {
+  background: var(--surface-2);
+  border-color: var(--amber-soft);
+  color: var(--amber);
+}
+
+/* === STATUS LEGEND === */
+.status-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  padding: 14px 4px 0;
+  font-size: calc(12px * var(--font-scale));
+  color: var(--text-3);
+}
+
+.status-legend__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.status-legend__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* === FOCUS-VISIBLE === */
+.app-header__link:focus-visible,
+.net-card:focus-visible,
+.segment-control__btn:focus-visible,
+.back-link:focus-visible,
+.past-net-row:focus-visible,
+.retry-btn:focus-visible,
+.font-size-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--amber-soft);
+}
 
 /* === RESPONSIVE === */
 @media (max-width: 640px) {

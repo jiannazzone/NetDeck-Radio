@@ -1,6 +1,6 @@
 import { el } from '../utils/dom.js';
 import { formatAge, formatDateTime } from '../utils/formatters.js';
-import { getStatusClass } from '../utils/status-colors.js';
+import { getStatusClass, STATUS_LEGEND } from '../utils/status-colors.js';
 import { sse } from '../sse.js';
 import { getCheckins } from '../api.js';
 
@@ -27,9 +27,19 @@ export function renderNetDetail(container, params) {
   const tableContainer = el('div', { className: 'table-container' });
   const loading = el('div', { className: 'loading' }, 'Loading checkins...');
 
+  const legend = el('div', { className: 'status-legend' },
+    ...STATUS_LEGEND.map(([label, color]) =>
+      el('span', { className: 'status-legend__item' },
+        el('span', { className: 'status-legend__dot', style: `background:${color}` }),
+        label,
+      )
+    ),
+  );
+
   container.appendChild(headerRow);
   container.appendChild(loading);
   container.appendChild(tableContainer);
+  container.appendChild(legend);
 
   function updateFreshness() {
     if (age != null) {
@@ -77,12 +87,12 @@ export function renderNetDetail(container, params) {
 
       const row = el('tr', { className: classes },
         el('td', {}, String(c.serialNo)),
-        el('td', { className: 'checkin-row__callsign' }, c.callsign),
-        el('td', {}, c.preferredName || c.firstName),
+        el('td', { className: 'checkin-row__callsign' }, c.callsign || '\u2014'),
+        el('td', {}, c.preferredName || c.firstName || '\u2014'),
         el('td', {}, c.statusLabel || ''),
-        el('td', {}, location),
-        el('td', {}, c.grid),
-        el('td', {}, c.remarks),
+        el('td', {}, location || '\u2014'),
+        el('td', {}, c.grid || '\u2014'),
+        el('td', {}, c.remarks || '\u2014'),
       );
       tbody.appendChild(row);
     }
@@ -96,15 +106,33 @@ export function renderNetDetail(container, params) {
     age = data.age ?? 0;
     lastUpdate = Date.now();
     loading.style.display = 'none';
+    const existingError = container.querySelector('.error-state');
+    if (existingError) existingError.remove();
     renderTable();
     updateFreshness();
   }
 
+  function loadCheckins() {
+    loading.style.display = '';
+    loading.textContent = 'Loading checkins...';
+    const existingError = container.querySelector('.error-state');
+    if (existingError) existingError.remove();
+
+    getCheckins(serverName, netName).then(onUpdate).catch((err) => {
+      loading.style.display = 'none';
+      console.error(err);
+      const existingErr = container.querySelector('.error-state');
+      if (existingErr) existingErr.remove();
+      const errorDiv = el('div', { className: 'error-state' },
+        el('p', {}, 'Failed to load checkins.'),
+        el('button', { className: 'retry-btn', onClick: loadCheckins }, 'Retry'),
+      );
+      container.insertBefore(errorDiv, tableContainer);
+    });
+  }
+
   // Load initial data via REST
-  getCheckins(serverName, netName).then(onUpdate).catch((err) => {
-    loading.textContent = 'Failed to load checkins.';
-    console.error(err);
-  });
+  loadCheckins();
 
   // Subscribe to SSE updates
   sse.removeAllListeners();

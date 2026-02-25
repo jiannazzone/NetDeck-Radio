@@ -2,15 +2,35 @@ export class SSEClient {
   constructor() {
     this.eventSource = null;
     this.listeners = new Map();
+    this.state = 'disconnected';
+    this._onStateChange = null;
+  }
+
+  set onStateChange(cb) {
+    this._onStateChange = cb;
+    if (cb) cb(this.state);
+  }
+
+  _setState(state) {
+    if (this.state !== state) {
+      this.state = state;
+      if (this._onStateChange) this._onStateChange(state);
+    }
   }
 
   connect(params) {
     this.disconnect();
 
+    this._setState('connecting');
     const query = new URLSearchParams(params).toString();
     this.eventSource = new EventSource(`/api/events?${query}`);
 
+    this.eventSource.onopen = () => {
+      this._setState('connected');
+    };
+
     this.eventSource.onerror = () => {
+      this._setState('disconnected');
       console.warn('[SSE] Connection error, will auto-reconnect');
     };
 
@@ -27,6 +47,7 @@ export class SSEClient {
       this.eventSource.close();
       this.eventSource = null;
     }
+    this._setState('disconnected');
   }
 
   on(event, callback) {

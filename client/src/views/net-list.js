@@ -8,6 +8,7 @@ export function renderNetList(container) {
   let searchTerm = '';
   let age = null;
   let ageTimer = null;
+  let searchTimer = null;
 
   container.innerHTML = '';
 
@@ -18,13 +19,24 @@ export function renderNetList(container) {
   });
   searchInput.addEventListener('input', (e) => {
     searchTerm = e.target.value;
-    renderCards();
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(renderCards, 150);
   });
 
-  const liveIndicator = el('span', { className: 'live-indicator' },
-    el('span', { className: 'live-dot' }),
-    'Live',
-  );
+  const liveDot = el('span', { className: 'live-dot' });
+  const liveText = document.createTextNode('Live');
+  const liveIndicator = el('span', { className: 'live-indicator' }, liveDot, liveText);
+
+  sse.onStateChange = (state) => {
+    if (state === 'connected') {
+      liveIndicator.className = 'live-indicator';
+      liveText.textContent = 'Live';
+    } else {
+      liveIndicator.className = 'live-indicator live-indicator--warn';
+      liveText.textContent = 'Reconnecting\u2026';
+    }
+  };
+
   const netCount = el('span', { className: 'net-count' });
   const freshnessBadge = el('span', { className: 'freshness-badge' });
 
@@ -63,7 +75,12 @@ export function renderNetList(container) {
       ? `${filtered.length} of ${nets.length}`
       : `${nets.length} nets`;
 
-    if (filtered.length === 0 && nets.length > 0) {
+    if (nets.length === 0) {
+      grid.appendChild(el('p', { className: 'empty-state empty-state--dim' }, 'No active nets right now.'));
+      return;
+    }
+
+    if (filtered.length === 0) {
       grid.appendChild(el('p', { className: 'empty-state' }, 'No nets match your search.'));
       return;
     }
@@ -91,15 +108,17 @@ export function renderNetList(container) {
         statsItems.push(el('span', {}, formatNetDuration(net.date)));
       }
 
+      const freqText = net.frequency
+        ? `${net.frequency}${net.mode ? ` ${net.mode}` : ''}`
+        : '\u2014';
+
       const card = el('a', {
         className: 'net-card',
         href: `#/net/${encodeURIComponent(net.serverName)}/${encodeURIComponent(net.netName)}`,
       },
         el('h3', { className: 'net-card__name' }, net.netName),
-        el('div', { className: 'net-card__freq' },
-          `${net.frequency} ${net.mode}`,
-        ),
-        el('div', { className: 'net-card__band' }, net.band),
+        el('div', { className: 'net-card__freq' }, freqText),
+        ...(net.band ? [el('div', { className: 'net-card__band' }, net.band)] : []),
         el('div', { className: 'net-card__meta' }, ...metaItems),
         el('div', { className: 'net-card__stats' }, ...statsItems),
       );
@@ -120,23 +139,46 @@ export function renderNetList(container) {
     updateFreshness();
   }
 
+  function loadNets() {
+    loading.style.display = '';
+    loading.textContent = 'Loading active nets...';
+    // Remove any existing error state
+    const existingError = container.querySelector('.error-state');
+    if (existingError) existingError.remove();
+
+    getActiveNets().then((data) => {
+      onUpdate(data);
+    }).catch((err) => {
+      loading.style.display = 'none';
+      console.error(err);
+      const existingErr = container.querySelector('.error-state');
+      if (existingErr) existingErr.remove();
+      const errorDiv = el('div', { className: 'error-state' },
+        el('p', {}, 'Failed to load nets.'),
+        el('button', { className: 'retry-btn', onClick: loadNets }, 'Retry'),
+      );
+      container.insertBefore(errorDiv, grid);
+    });
+  }
+
   // Load initial data via REST
-  getActiveNets().then((data) => {
-    onUpdate(data);
-  }).catch((err) => {
-    loading.textContent = 'Failed to load nets. Retrying...';
-    console.error(err);
-  });
+  loadNets();
 
   // Subscribe to SSE updates
   sse.removeAllListeners();
-  const handler = sse.on('nets', (data) => onUpdate({ nets: data, age: 0 }));
+  const handler = sse.on('nets', (data) => {
+    const existingError = container.querySelector('.error-state');
+    if (existingError) existingError.remove();
+    onUpdate({ nets: data, age: 0 });
+  });
   sse.connect({ subscribe: 'nets' });
 
   ageTimer = setInterval(updateFreshness, 1000);
 
   return () => {
     clearInterval(ageTimer);
+    clearTimeout(searchTimer);
+    sse.onStateChange = null;
     sse.removeAllListeners();
     sse.disconnect();
   };
