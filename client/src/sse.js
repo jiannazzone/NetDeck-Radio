@@ -1,0 +1,70 @@
+export class SSEClient {
+  constructor() {
+    this.eventSource = null;
+    this.listeners = new Map();
+  }
+
+  connect(params) {
+    this.disconnect();
+
+    const query = new URLSearchParams(params).toString();
+    this.eventSource = new EventSource(`/api/events?${query}`);
+
+    this.eventSource.onerror = () => {
+      console.warn('[SSE] Connection error, will auto-reconnect');
+    };
+
+    // Re-attach listeners
+    for (const [event, callbacks] of this.listeners) {
+      for (const cb of callbacks) {
+        this.eventSource.addEventListener(event, cb);
+      }
+    }
+  }
+
+  disconnect() {
+    if (this.eventSource) {
+      this.eventSource.close();
+      this.eventSource = null;
+    }
+  }
+
+  on(event, callback) {
+    const wrapped = (e) => callback(JSON.parse(e.data));
+
+    if (!this.listeners.has(event)) {
+      this.listeners.set(event, []);
+    }
+    this.listeners.get(event).push(wrapped);
+
+    if (this.eventSource) {
+      this.eventSource.addEventListener(event, wrapped);
+    }
+
+    return wrapped;
+  }
+
+  off(event, wrapped) {
+    if (this.eventSource) {
+      this.eventSource.removeEventListener(event, wrapped);
+    }
+    const callbacks = this.listeners.get(event);
+    if (callbacks) {
+      const idx = callbacks.indexOf(wrapped);
+      if (idx !== -1) callbacks.splice(idx, 1);
+    }
+  }
+
+  removeAllListeners() {
+    if (this.eventSource) {
+      for (const [event, callbacks] of this.listeners) {
+        for (const cb of callbacks) {
+          this.eventSource.removeEventListener(event, cb);
+        }
+      }
+    }
+    this.listeners.clear();
+  }
+}
+
+export const sse = new SSEClient();
