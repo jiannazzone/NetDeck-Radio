@@ -10,6 +10,13 @@ sseRouter.get('/', (req, res) => {
   const serverName = req.query.serverName;
   const netName = req.query.netName;
 
+  if (subscribe !== 'nets' && subscribe !== 'checkins') {
+    return res.status(400).json({ error: 'subscribe must be "nets" or "checkins"' });
+  }
+  if (subscribe === 'checkins' && (!serverName || !netName)) {
+    return res.status(400).json({ error: 'checkins subscription requires serverName and netName' });
+  }
+
   res.writeHead(200, {
     'Content-Type': 'text/event-stream',
     'Cache-Control': 'no-cache',

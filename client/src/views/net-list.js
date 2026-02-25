@@ -167,7 +167,7 @@ export function renderNetList(container) {
 
   // Subscribe to SSE updates
   sse.removeAllListeners();
-  const handler = sse.on('nets', (data) => {
+  sse.on('nets', (data) => {
     const existingError = container.querySelector('.error-state');
     if (existingError) existingError.remove();
     onUpdate({ nets: data, age: 0 });

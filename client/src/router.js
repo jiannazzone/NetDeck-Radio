@@ -21,7 +21,7 @@ function matchRoute(hash) {
   return null;
 }
 
-function matchPattern(pattern, path) {
+export function matchPattern(pattern, path) {
   const patternParts = pattern.split('/').filter(Boolean);
   const pathParts = path.split('/').filter(Boolean);
 
@@ -79,7 +79,12 @@ function onHashChange() {
   app.classList.add('view-exit');
   setTimeout(() => {
     if (match) {
-      currentCleanup = match.handler(app, match.params) || null;
+      try {
+        currentCleanup = match.handler(app, match.params) || null;
+      } catch (err) {
+        console.error('[Router] View render error:', err);
+        app.innerHTML = '<p class="error">Something went wrong. Try navigating back.</p>';
+      }
     } else {
       app.innerHTML = '<p class="error">Page not found</p>';
     }

@@ -1,3 +1,5 @@
+const MAX_ENTRIES = 500;
+
 export class Cache {
   constructor() {
     this.store = new Map();
@@ -28,6 +30,10 @@ export class Cache {
 
   set(key, data, ttl) {
     this.store.set(key, { data, timestamp: Date.now(), ttl });
+    if (this.store.size > MAX_ENTRIES) {
+      const oldest = this.store.keys().next().value;
+      this.store.delete(oldest);
+    }
   }
 
   delete(key) {

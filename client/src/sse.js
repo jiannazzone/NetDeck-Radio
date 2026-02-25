@@ -1,3 +1,5 @@
+const MAX_ERRORS = 5;
+
 export class SSEClient {
   constructor() {
     this.eventSource = null;
@@ -5,6 +7,7 @@ export class SSEClient {
     this.state = 'disconnected';
     this._onStateChange = null;
     this._params = null;
+    this._errorCount = 0;
   }
 
   set onStateChange(cb) {
@@ -23,17 +26,26 @@ export class SSEClient {
     this.disconnect();
 
     this._params = params;
+    this._errorCount = 0;
     this._setState('connecting');
     const query = new URLSearchParams(params).toString();
     this.eventSource = new EventSource(`/api/events?${query}`);
 
     this.eventSource.onopen = () => {
+      this._errorCount = 0;
       this._setState('connected');
     };
 
     this.eventSource.onerror = () => {
-      this._setState('reconnecting');
-      console.warn('[SSE] Connection error, will auto-reconnect');
+      this._errorCount++;
+      if (this._errorCount >= MAX_ERRORS) {
+        this.eventSource.close();
+        this._setState('failed');
+        console.error('[SSE] Connection failed after', MAX_ERRORS, 'attempts');
+      } else {
+        this._setState('reconnecting');
+        console.warn('[SSE] Connection error, will auto-reconnect');
+      }
     };
 
     // Re-attach listeners
@@ -59,7 +71,13 @@ export class SSEClient {
   }
 
   on(event, callback) {
-    const wrapped = (e) => callback(JSON.parse(e.data));
+    const wrapped = (e) => {
+      try {
+        callback(JSON.parse(e.data));
+      } catch (err) {
+        console.error('[SSE] Failed to parse event data:', err);
+      }
+    };
 
     if (!this.listeners.has(event)) {
       this.listeners.set(event, []);

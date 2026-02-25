@@ -42,6 +42,7 @@ apiRouter.get('/nets/:serverName/:netName/checkins', async (req, res) => {
   }
 
   if (!canMakeRequest('GetCheckins')) {
+    console.warn(`[API] Rate limited on GetCheckins for ${serverName}/${netName}, serving stale data`);
     const stale = cache.getStale(cacheKey);
     if (stale) return res.json({ ...stale, age: Date.now() - (cache.getWithMeta(cacheKey)?.age ?? 0), stale: true });
     return res.json({ checkins: [], pointer: 0, count: 0, age: null, stale: true });

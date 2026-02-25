@@ -7,7 +7,7 @@ import { canMakeRequest } from '../utils/rate-limiter.js';
 
 const WATCHER_TIMEOUT = 120_000; // 2 minutes (4x heartbeat interval)
 
-class Poller extends EventEmitter {
+export class Poller extends EventEmitter {
   constructor() {
     super();
     this.activeNetsTimer = null;

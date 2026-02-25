@@ -1,11 +1,19 @@
 import { NETLOGGER_API_BASE } from '../config.js';
 
+const FETCH_TIMEOUT = 15_000;
+
 async function fetchXml(url) {
-  const response = await fetch(url);
-  if (!response.ok) {
-    throw new Error(`NetLogger API HTTP ${response.status}: ${url}`);
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT);
+  try {
+    const response = await fetch(url, { signal: controller.signal });
+    if (!response.ok) {
+      throw new Error(`NetLogger API HTTP ${response.status}: ${url}`);
+    }
+    return response.text();
+  } finally {
+    clearTimeout(timer);
   }
-  return response.text();
 }
 
 export async function fetchActiveNets(netNameLike) {

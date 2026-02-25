@@ -1,14 +1,23 @@
 const BASE = '/api';
+const FETCH_TIMEOUT = 10_000;
 
 async function fetchJson(url) {
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`API error: ${res.status}`);
-  return res.json();
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT);
+  try {
+    const res = await fetch(url, { signal: controller.signal });
+    if (!res.ok) {
+      const body = await res.text().catch(() => '');
+      throw new Error(`API error: ${res.status}${body ? ` — ${body}` : ''}`);
+    }
+    return res.json();
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
-export function getActiveNets(search) {
-  const params = search ? `?search=${encodeURIComponent(search)}` : '';
-  return fetchJson(`${BASE}/nets${params}`);
+export function getActiveNets() {
+  return fetchJson(`${BASE}/nets`);
 }
 
 export function getCheckins(serverName, netName) {

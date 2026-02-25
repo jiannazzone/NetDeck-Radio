@@ -22,8 +22,15 @@ if (NODE_ENV === 'production') {
   });
 }
 
+// Global error handler
+app.use((err, req, res, _next) => {
+  console.error(`[Server] Unhandled error on ${req.method} ${req.url}:`, err.stack || err.message);
+  res.status(500).json({ error: 'Internal server error' });
+});
+
 poller.start();
 
 app.listen(PORT, () => {
-  console.log(`NetDeck Radio server listening on port ${PORT} (${NODE_ENV})`);
+  const host = NODE_ENV === 'development' ? `http://localhost:${PORT}` : `port ${PORT}`;
+  console.log(`NetDeck Radio server listening on ${host} (${NODE_ENV})`);
 });
