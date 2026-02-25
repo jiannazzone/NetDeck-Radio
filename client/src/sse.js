@@ -4,6 +4,7 @@ export class SSEClient {
     this.listeners = new Map();
     this.state = 'disconnected';
     this._onStateChange = null;
+    this._params = null;
   }
 
   set onStateChange(cb) {
@@ -21,6 +22,7 @@ export class SSEClient {
   connect(params) {
     this.disconnect();
 
+    this._params = params;
     this._setState('connecting');
     const query = new URLSearchParams(params).toString();
     this.eventSource = new EventSource(`/api/events?${query}`);
@@ -30,7 +32,7 @@ export class SSEClient {
     };
 
     this.eventSource.onerror = () => {
-      this._setState('disconnected');
+      this._setState('reconnecting');
       console.warn('[SSE] Connection error, will auto-reconnect');
     };
 
@@ -39,6 +41,12 @@ export class SSEClient {
       for (const cb of callbacks) {
         this.eventSource.addEventListener(event, cb);
       }
+    }
+  }
+
+  reconnect() {
+    if (this._params) {
+      this.connect(this._params);
     }
   }
 

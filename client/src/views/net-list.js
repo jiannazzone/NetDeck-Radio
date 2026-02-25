@@ -25,7 +25,7 @@ export function renderNetList(container) {
 
   const liveDot = el('span', { className: 'live-dot' });
   const liveText = document.createTextNode('Live');
-  const liveIndicator = el('span', { className: 'live-indicator' }, liveDot, liveText);
+  const liveIndicator = el('span', { className: 'live-indicator', role: 'status', 'aria-live': 'polite' }, liveDot, liveText);
 
   sse.onStateChange = (state) => {
     if (state === 'connected') {
@@ -115,6 +115,7 @@ export function renderNetList(container) {
       const card = el('a', {
         className: 'net-card',
         href: `#/net/${encodeURIComponent(net.serverName)}/${encodeURIComponent(net.netName)}`,
+        'aria-label': net.netName,
       },
         el('h3', { className: 'net-card__name' }, net.netName),
         el('div', { className: 'net-card__freq' }, freqText),

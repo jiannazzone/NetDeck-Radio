@@ -4,6 +4,28 @@ import { getStatusClass, STATUS_LEGEND } from '../utils/status-colors.js';
 import { sse } from '../sse.js';
 import { getCheckins } from '../api.js';
 
+const SORTABLE_COLUMNS = [
+  { key: 'serialNo', label: '#', getValue: (c) => c.serialNo },
+  { key: 'callsign', label: 'Callsign', getValue: (c) => (c.callsign || '').toLowerCase() },
+  { key: 'name', label: 'Name', getValue: (c) => (c.preferredName || c.firstName || '').toLowerCase() },
+  { key: 'status', label: 'Status', getValue: (c) => (c.statusLabel || '').toLowerCase() },
+  { key: 'location', label: 'Location', getValue: (c) => [c.cityCountry, c.state, c.country].filter((s) => s && s.trim()).join(', ').toLowerCase() },
+  { key: 'grid', label: 'Grid', getValue: (c) => (c.grid || '').toLowerCase() },
+];
+
+function sortCheckins(checkins, sortColumn, sortDirection) {
+  const col = SORTABLE_COLUMNS.find((c) => c.key === sortColumn);
+  if (!col) return checkins;
+  const sorted = [...checkins].sort((a, b) => {
+    const va = col.getValue(a);
+    const vb = col.getValue(b);
+    if (va < vb) return -1;
+    if (va > vb) return 1;
+    return 0;
+  });
+  return sortDirection === 'desc' ? sorted.reverse() : sorted;
+}
+
 export function renderNetDetail(container, params) {
   const { serverName, netName } = params;
   let checkins = [];
@@ -11,6 +33,8 @@ export function renderNetDetail(container, params) {
   let age = null;
   let ageTimer = null;
   let lastUpdate = Date.now();
+  let sortColumn = 'serialNo';
+  let sortDirection = 'asc';
 
   container.innerHTML = '';
 
@@ -48,6 +72,16 @@ export function renderNetDetail(container, params) {
     }
   }
 
+  function handleSort(key) {
+    if (sortColumn === key) {
+      sortDirection = sortDirection === 'asc' ? 'desc' : 'asc';
+    } else {
+      sortColumn = key;
+      sortDirection = 'asc';
+    }
+    renderTable();
+  }
+
   function renderTable() {
     tableContainer.innerHTML = '';
     checkinCount.textContent = `${checkins.length} checkins`;
@@ -58,21 +92,25 @@ export function renderNetDetail(container, params) {
     }
 
     const table = el('table', { className: 'checkin-table' });
-    const thead = el('thead', {},
-      el('tr', {},
-        el('th', {}, '#'),
-        el('th', {}, 'Callsign'),
-        el('th', {}, 'Name'),
-        el('th', {}, 'Status'),
-        el('th', {}, 'Location'),
-        el('th', {}, 'Grid'),
-        el('th', {}, 'Remarks'),
-      ),
-    );
+    const headerCells = SORTABLE_COLUMNS.map((col) => {
+      const isActive = sortColumn === col.key;
+      const indicator = isActive
+        ? el('span', { className: 'sort-indicator' }, sortDirection === 'asc' ? '\u25B2' : '\u25BC')
+        : null;
+      return el('th', {
+        scope: 'col',
+        className: 'sortable',
+        onClick: () => handleSort(col.key),
+      }, col.label, indicator);
+    });
+    headerCells.push(el('th', { scope: 'col' }, 'Remarks'));
+
+    const thead = el('thead', {}, el('tr', {}, ...headerCells));
     table.appendChild(thead);
 
+    const sorted = sortCheckins(checkins, sortColumn, sortDirection);
     const tbody = el('tbody');
-    for (const c of checkins) {
+    for (const c of sorted) {
       const isPointer = c.serialNo === pointer;
       const statusClass = getStatusClass(c.statusType || 'regular');
       const classes = [

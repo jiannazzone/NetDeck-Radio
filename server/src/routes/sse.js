@@ -43,9 +43,12 @@ sseRouter.get('/', (req, res) => {
     poller.addWatcher(serverName, netName);
   }
 
-  // Heartbeat to keep connection alive
+  // Heartbeat to keep connection alive and touch watchers
   const heartbeat = setInterval(() => {
     send('heartbeat', { time: new Date().toISOString() });
+    if (subscribe === 'checkins' && serverName && netName) {
+      poller.touchWatcher(serverName, netName);
+    }
   }, SSE_HEARTBEAT_INTERVAL);
 
   // Cleanup on disconnect

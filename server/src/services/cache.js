@@ -10,6 +10,12 @@ export class Cache {
     return entry.data;
   }
 
+  getStale(key) {
+    const entry = this.store.get(key);
+    if (!entry) return null;
+    return entry.data;
+  }
+
   getWithMeta(key) {
     const entry = this.store.get(key);
     if (!entry) return null;

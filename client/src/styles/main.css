@@ -107,6 +107,18 @@ a:hover {
   text-decoration: underline;
 }
 
+/* === SKIP LINK === */
+.skip-link {
+  position: absolute;
+  left: -9999px;
+  z-index: 999;
+  padding: 8px 16px;
+  background: var(--amber);
+  color: var(--bg);
+  font-weight: 600;
+}
+.skip-link:focus { left: 8px; top: 8px; }
+
 /* === HEADER === */
 .app-header {
   position: sticky;
@@ -613,6 +625,11 @@ a:hover {
   color: var(--text);
   letter-spacing: 0.02em;
 }
+
+/* === SORTABLE TABLE HEADERS === */
+.checkin-table th.sortable { cursor: pointer; user-select: none; }
+.checkin-table th.sortable:hover { color: var(--text-2); }
+.sort-indicator { margin-left: 4px; font-size: 0.8em; }
 
 /* === PAST NETS TABLE === */
 .past-nets-table td:nth-child(6),

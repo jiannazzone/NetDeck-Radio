@@ -79,13 +79,13 @@ export function renderPastNets(container) {
     const table = el('table', { className: 'past-nets-table' });
     const thead = el('thead', {},
       el('tr', {},
-        el('th', {}, 'Net Name'),
-        el('th', {}, 'Frequency'),
-        el('th', {}, 'Mode'),
-        el('th', {}, 'Band'),
-        el('th', {}, 'NCS'),
-        el('th', {}, 'Opened'),
-        el('th', {}, 'Closed'),
+        el('th', { scope: 'col' }, 'Net Name'),
+        el('th', { scope: 'col' }, 'Frequency'),
+        el('th', { scope: 'col' }, 'Mode'),
+        el('th', { scope: 'col' }, 'Band'),
+        el('th', { scope: 'col' }, 'NCS'),
+        el('th', { scope: 'col' }, 'Opened'),
+        el('th', { scope: 'col' }, 'Closed'),
       ),
     );
     table.appendChild(thead);
@@ -148,8 +148,33 @@ export function renderPastNets(container) {
   };
 }
 
+const SORTABLE_COLUMNS = [
+  { key: 'serialNo', label: '#', getValue: (c) => c.serialNo },
+  { key: 'callsign', label: 'Callsign', getValue: (c) => (c.callsign || '').toLowerCase() },
+  { key: 'name', label: 'Name', getValue: (c) => (c.preferredName || c.firstName || '').toLowerCase() },
+  { key: 'status', label: 'Status', getValue: (c) => (c.statusLabel || '').toLowerCase() },
+  { key: 'location', label: 'Location', getValue: (c) => [c.cityCountry, c.state, c.country].filter((s) => s && s.trim()).join(', ').toLowerCase() },
+  { key: 'grid', label: 'Grid', getValue: (c) => (c.grid || '').toLowerCase() },
+];
+
+function sortCheckins(checkins, sortColumn, sortDirection) {
+  const col = SORTABLE_COLUMNS.find((c) => c.key === sortColumn);
+  if (!col) return checkins;
+  const sorted = [...checkins].sort((a, b) => {
+    const va = col.getValue(a);
+    const vb = col.getValue(b);
+    if (va < vb) return -1;
+    if (va > vb) return 1;
+    return 0;
+  });
+  return sortDirection === 'desc' ? sorted.reverse() : sorted;
+}
+
 export function renderPastNetDetail(container, params) {
   const { serverName, netName, netId } = params;
+  let checkins = [];
+  let sortColumn = 'serialNo';
+  let sortDirection = 'asc';
 
   container.innerHTML = '';
 
@@ -180,6 +205,65 @@ export function renderPastNetDetail(container, params) {
   container.appendChild(tableContainer);
   container.appendChild(legend);
 
+  function handleSort(key) {
+    if (sortColumn === key) {
+      sortDirection = sortDirection === 'asc' ? 'desc' : 'asc';
+    } else {
+      sortColumn = key;
+      sortDirection = 'asc';
+    }
+    renderCheckinTable();
+  }
+
+  function renderCheckinTable() {
+    tableContainer.innerHTML = '';
+    checkinCount.textContent = `${checkins.length} checkins`;
+
+    if (checkins.length === 0) {
+      tableContainer.appendChild(el('p', { className: 'empty-state' }, 'No checkins found.'));
+      return;
+    }
+
+    const table = el('table', { className: 'checkin-table' });
+    const headerCells = SORTABLE_COLUMNS.map((col) => {
+      const isActive = sortColumn === col.key;
+      const indicator = isActive
+        ? el('span', { className: 'sort-indicator' }, sortDirection === 'asc' ? '\u25B2' : '\u25BC')
+        : null;
+      return el('th', {
+        scope: 'col',
+        className: 'sortable',
+        onClick: () => handleSort(col.key),
+      }, col.label, indicator);
+    });
+    headerCells.push(el('th', { scope: 'col' }, 'Remarks'));
+
+    const thead = el('thead', {}, el('tr', {}, ...headerCells));
+    table.appendChild(thead);
+
+    const sorted = sortCheckins(checkins, sortColumn, sortDirection);
+    const tbody = el('tbody');
+    for (const c of sorted) {
+      const statusClass = getStatusClass(c.statusType || 'regular');
+      const location = [c.cityCountry, c.state, c.country]
+        .filter((s) => s && s.trim())
+        .join(', ');
+
+      const row = el('tr', { className: ['checkin-row', statusClass].filter(Boolean).join(' ') },
+        el('td', {}, String(c.serialNo)),
+        el('td', { className: 'checkin-row__callsign' }, c.callsign || '\u2014'),
+        el('td', {}, c.preferredName || c.firstName || '\u2014'),
+        el('td', {}, c.statusLabel || ''),
+        el('td', {}, location || '\u2014'),
+        el('td', {}, c.grid || '\u2014'),
+        el('td', {}, c.remarks || '\u2014'),
+      );
+      tbody.appendChild(row);
+    }
+    table.appendChild(tbody);
+    tableContainer.appendChild(table);
+  }
+
   function loadCheckins() {
     loading.style.display = '';
     loading.textContent = 'Loading checkins...';
@@ -190,49 +274,8 @@ export function renderPastNetDetail(container, params) {
     getPastNetCheckins(serverName, netName, netId)
       .then((data) => {
         loading.style.display = 'none';
-        const checkins = data.checkins || [];
-
-        checkinCount.textContent = `${checkins.length} checkins`;
-
-        if (checkins.length === 0) {
-          tableContainer.appendChild(el('p', { className: 'empty-state' }, 'No checkins found.'));
-          return;
-        }
-
-        const table = el('table', { className: 'checkin-table' });
-        const thead = el('thead', {},
-          el('tr', {},
-            el('th', {}, '#'),
-            el('th', {}, 'Callsign'),
-            el('th', {}, 'Name'),
-            el('th', {}, 'Status'),
-            el('th', {}, 'Location'),
-            el('th', {}, 'Grid'),
-            el('th', {}, 'Remarks'),
-          ),
-        );
-        table.appendChild(thead);
-
-        const tbody = el('tbody');
-        for (const c of checkins) {
-          const statusClass = getStatusClass(c.statusType || 'regular');
-          const location = [c.cityCountry, c.state, c.country]
-            .filter((s) => s && s.trim())
-            .join(', ');
-
-          const row = el('tr', { className: ['checkin-row', statusClass].filter(Boolean).join(' ') },
-            el('td', {}, String(c.serialNo)),
-            el('td', { className: 'checkin-row__callsign' }, c.callsign || '\u2014'),
-            el('td', {}, c.preferredName || c.firstName || '\u2014'),
-            el('td', {}, c.statusLabel || ''),
-            el('td', {}, location || '\u2014'),
-            el('td', {}, c.grid || '\u2014'),
-            el('td', {}, c.remarks || '\u2014'),
-          );
-          tbody.appendChild(row);
-        }
-        table.appendChild(tbody);
-        tableContainer.appendChild(table);
+        checkins = data.checkins || [];
+        renderCheckinTable();
       })
       .catch((err) => {
         loading.style.display = 'none';

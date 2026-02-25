@@ -42,6 +42,8 @@ apiRouter.get('/nets/:serverName/:netName/checkins', async (req, res) => {
   }
 
   if (!canMakeRequest('GetCheckins')) {
+    const stale = cache.getStale(cacheKey);
+    if (stale) return res.json({ ...stale, age: Date.now() - (cache.getWithMeta(cacheKey)?.age ?? 0), stale: true });
     return res.json({ checkins: [], pointer: 0, count: 0, age: null, stale: true });
   }
 
@@ -65,17 +67,22 @@ apiRouter.get('/past-nets', async (req, res) => {
 
   if (!nets) {
     if (!canMakeRequest('GetPastNets')) {
-      return res.status(429).json({ error: 'Rate limited' });
-    }
-
-    try {
-      // Always fetch 7 days (the max UI interval) so shorter intervals
-      // can be filtered from cache without additional API calls
-      const xml = await fetchPastNets(7);
-      nets = parsePastNets(xml);
-      cache.set(cacheKey, nets, CACHE_TTL.pastNets);
-    } catch (err) {
-      return res.status(502).json({ error: err.message });
+      const stale = cache.getStale(cacheKey);
+      if (stale) {
+        nets = stale;
+      } else {
+        return res.status(429).json({ error: 'Rate limited' });
+      }
+    } else {
+      try {
+        // Always fetch 7 days (the max UI interval) so shorter intervals
+        // can be filtered from cache without additional API calls
+        const xml = await fetchPastNets(7);
+        nets = parsePastNets(xml);
+        cache.set(cacheKey, nets, CACHE_TTL.pastNets);
+      } catch (err) {
+        return res.status(502).json({ error: err.message });
+      }
     }
   }
 
