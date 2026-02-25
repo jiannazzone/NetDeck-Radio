@@ -6,14 +6,14 @@ import { cache } from './cache.js';
 import { canMakeRequest } from '../utils/rate-limiter.js';
 
 const WATCHER_TIMEOUT = 120_000; // 2 minutes (4x heartbeat interval)
-const CLEANUP_INTERVAL = 60_000; // check every 60s
 
 class Poller extends EventEmitter {
   constructor() {
     super();
     this.activeNetsTimer = null;
-    this.cleanupTimer = null;
-    this.checkinWatchers = new Map(); // key -> { refCount, timer, lastSeen }
+    this.checkinSchedulerTimer = null;
+    this.checkinWatchers = new Map(); // key -> { refCount, serverName, netName, lastSeen, lastPolled, lastXml }
+    this._lastActiveNetsXml = null;
   }
 
   start() {
@@ -22,7 +22,7 @@ class Poller extends EventEmitter {
       () => this.pollActiveNets(),
       POLL_INTERVALS.activeNets,
     );
-    this.startCleanup();
+    this.startCheckinScheduler();
     console.log('[Poller] Started active nets polling');
   }
 
@@ -31,27 +31,54 @@ class Poller extends EventEmitter {
       clearInterval(this.activeNetsTimer);
       this.activeNetsTimer = null;
     }
-    if (this.cleanupTimer) {
-      clearInterval(this.cleanupTimer);
-      this.cleanupTimer = null;
-    }
-    for (const [key, watcher] of this.checkinWatchers) {
-      clearInterval(watcher.timer);
+    if (this.checkinSchedulerTimer) {
+      clearInterval(this.checkinSchedulerTimer);
+      this.checkinSchedulerTimer = null;
     }
     this.checkinWatchers.clear();
+    this._lastActiveNetsXml = null;
   }
 
-  startCleanup() {
-    this.cleanupTimer = setInterval(() => {
-      const now = Date.now();
-      for (const [key, watcher] of this.checkinWatchers) {
-        if (now - watcher.lastSeen > WATCHER_TIMEOUT) {
-          console.log(`[Poller] Cleaning up stale watcher for ${key} (inactive ${Math.round((now - watcher.lastSeen) / 1000)}s)`);
-          clearInterval(watcher.timer);
-          this.checkinWatchers.delete(key);
-        }
+  // Single polling loop: every 20s, poll the most-stale watched net.
+  // This guarantees we never exceed the 3 calls/60s rate limit by design
+  // (1 call per 20s interval = exactly 3/minute).
+  startCheckinScheduler() {
+    this.checkinSchedulerTimer = setInterval(
+      () => this.pollNextCheckin(),
+      POLL_INTERVALS.checkins,
+    );
+  }
+
+  pollNextCheckin() {
+    if (this.checkinWatchers.size === 0) return;
+
+    const now = Date.now();
+    let target = null;
+    let oldestTime = Infinity;
+
+    for (const [key, watcher] of this.checkinWatchers) {
+      // Inline stale watcher cleanup (replaces separate cleanupTimer)
+      if (now - watcher.lastSeen > WATCHER_TIMEOUT) {
+        console.log(`[Poller] Cleaning up stale watcher for ${key} (inactive ${Math.round((now - watcher.lastSeen) / 1000)}s)`);
+        this.checkinWatchers.delete(key);
+        continue;
       }
-    }, CLEANUP_INTERVAL);
+
+      // Pick the watcher that was polled least recently.
+      // Nets with no cached data get absolute priority (treated as lastPolled=0).
+      const cacheKey = `checkins:${watcher.serverName}:${watcher.netName}`;
+      const hasData = cache.getStale(cacheKey) !== null;
+      const effectiveTime = hasData ? watcher.lastPolled : 0;
+
+      if (effectiveTime < oldestTime) {
+        oldestTime = effectiveTime;
+        target = watcher;
+      }
+    }
+
+    if (target) {
+      this.pollCheckins(target.serverName, target.netName);
+    }
   }
 
   touchWatcher(serverName, netName) {
@@ -63,15 +90,12 @@ class Poller extends EventEmitter {
   }
 
   async pollActiveNets() {
-    if (!canMakeRequest('GetActiveNets')) {
-      console.warn('[Poller] Rate limited: GetActiveNets');
-      const stale = cache.getStale('active-nets');
-      if (stale) this.emit('nets', stale);
-      return;
-    }
+    if (!canMakeRequest('GetActiveNets')) return;
 
     try {
       const xml = await fetchActiveNets();
+      if (xml === this._lastActiveNetsXml) return;
+      this._lastActiveNetsXml = xml;
       const nets = parseActiveNets(xml);
       cache.set('active-nets', nets, CACHE_TTL.activeNets);
       this.emit('nets', nets);
@@ -81,22 +105,35 @@ class Poller extends EventEmitter {
   }
 
   async pollCheckins(serverName, netName) {
+    const key = `${serverName}:${netName}`;
     const cacheKey = `checkins:${serverName}:${netName}`;
+    const watcher = this.checkinWatchers.get(key);
 
     if (!canMakeRequest('GetCheckins')) {
-      console.warn('[Poller] Rate limited: GetCheckins');
-      const stale = cache.getStale(cacheKey);
-      if (stale) this.emit(`checkins:${serverName}:${netName}`, stale);
+      console.warn('[Poller] Rate limited: GetCheckins (safety net)');
       return;
     }
 
     try {
       const xml = await fetchCheckins(serverName, netName);
+      if (watcher && xml === watcher.lastXml) {
+        watcher.lastPolled = Date.now();
+        return;
+      }
       const data = parseCheckins(xml);
       cache.set(cacheKey, data, CACHE_TTL.checkins);
+      if (watcher) {
+        watcher.lastPolled = Date.now();
+        watcher.lastXml = xml;
+      }
       this.emit(`checkins:${serverName}:${netName}`, data);
     } catch (err) {
-      console.error(`[Poller] Failed to poll checkins for ${netName}:`, err.message);
+      if (err.code === 404 && watcher) {
+        console.log(`[Poller] Net "${netName}" no longer active, removing watcher`);
+        this.checkinWatchers.delete(key);
+      } else {
+        console.error(`[Poller] Failed to poll checkins for ${netName}:`, err.message);
+      }
     }
   }
 
@@ -111,15 +148,19 @@ class Poller extends EventEmitter {
       return;
     }
 
-    // Poll immediately, then on interval
-    this.pollCheckins(serverName, netName);
-    const timer = setInterval(
-      () => this.pollCheckins(serverName, netName),
-      POLL_INTERVALS.checkins,
-    );
+    // Register the watcher — the scheduler will pick it up on its next tick.
+    // No immediate poll here: the REST endpoint already fetches and caches
+    // data before SSE connects, so the client has data immediately.
+    // Setting lastPolled=0 gives this net highest priority in the scheduler.
+    this.checkinWatchers.set(key, {
+      refCount: 1,
+      serverName,
+      netName,
+      lastSeen: Date.now(),
+      lastPolled: 0,
+    });
 
-    this.checkinWatchers.set(key, { refCount: 1, timer, serverName, netName, lastSeen: Date.now() });
-    console.log(`[Poller] Started watching ${key}`);
+    console.log(`[Poller] Started watching ${key} (${this.checkinWatchers.size} net${this.checkinWatchers.size === 1 ? '' : 's'} active, polling every ${this.checkinWatchers.size * POLL_INTERVALS.checkins / 1000}s each)`);
   }
 
   removeWatcher(serverName, netName) {
@@ -131,7 +172,6 @@ class Poller extends EventEmitter {
     console.log(`[Poller] Watcher removed for ${key} (refCount: ${existing.refCount})`);
 
     if (existing.refCount <= 0) {
-      clearInterval(existing.timer);
       this.checkinWatchers.delete(key);
       console.log(`[Poller] Stopped watching ${key}`);
     }
