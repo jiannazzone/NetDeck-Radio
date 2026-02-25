@@ -59,7 +59,7 @@ apiRouter.get('/nets/:serverName/:netName/checkins', async (req, res) => {
 apiRouter.get('/past-nets', async (req, res) => {
   const interval = parseInt(req.query.interval, 10) || 7;
   const search = req.query.search || '';
-  const cacheKey = `past-nets:${interval}`;
+  const cacheKey = 'past-nets';
 
   let nets = cache.get(cacheKey);
 
@@ -69,12 +69,24 @@ apiRouter.get('/past-nets', async (req, res) => {
     }
 
     try {
-      const xml = await fetchPastNets(interval);
+      // Always fetch 7 days (the max UI interval) so shorter intervals
+      // can be filtered from cache without additional API calls
+      const xml = await fetchPastNets(7);
       nets = parsePastNets(xml);
       cache.set(cacheKey, nets, CACHE_TTL.pastNets);
     } catch (err) {
       return res.status(502).json({ error: err.message });
     }
+  }
+
+  // Filter by requested interval using closedAt date
+  if (interval < 7) {
+    const cutoff = new Date(Date.now() - interval * 24 * 60 * 60 * 1000);
+    nets = nets.filter((n) => {
+      if (!n.closedAt) return true;
+      const closed = new Date(n.closedAt + ' UTC');
+      return closed >= cutoff;
+    });
   }
 
   if (search) {

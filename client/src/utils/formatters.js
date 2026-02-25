@@ -22,3 +22,19 @@ export function formatDateTime(dateStr) {
     return dateStr;
   }
 }
+
+export function formatNetDuration(dateStr) {
+  if (!dateStr) return '';
+  try {
+    const start = new Date(dateStr + ' UTC');
+    const ms = Date.now() - start.getTime();
+    if (ms < 0) return '';
+    const minutes = Math.floor(ms / 60000);
+    if (minutes < 60) return `${minutes}m`;
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
+  } catch {
+    return '';
+  }
+}

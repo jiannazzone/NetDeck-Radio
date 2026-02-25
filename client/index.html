@@ -3,13 +3,22 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#08090d">
   <title>NetDeck Radio</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Figtree:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/src/styles/main.css">
 </head>
 <body>
   <header class="app-header">
     <div class="app-header__inner">
-      <a href="#/" class="app-header__logo">NetDeck Radio</a>
+      <a href="#/" class="app-header__logo">
+        <span class="app-header__logo-icon" aria-hidden="true">
+          <span></span><span></span><span></span>
+        </span>
+        NetDeck Radio
+      </a>
       <nav class="app-header__nav">
         <a href="#/" class="app-header__link" data-route="nets">Active Nets</a>
         <a href="#/past" class="app-header__link" data-route="past">Past Nets</a>

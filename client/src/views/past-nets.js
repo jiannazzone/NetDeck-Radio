@@ -1,6 +1,7 @@
 import { el } from '../utils/dom.js';
 import { formatDateTime } from '../utils/formatters.js';
 import { getPastNets, getPastNetCheckins } from '../api.js';
+import { getStatusClass } from '../utils/status-colors.js';
 
 export function renderPastNets(container) {
   let interval = 7;
@@ -14,15 +15,39 @@ export function renderPastNets(container) {
     placeholder: 'Search past nets...',
   });
 
-  const intervalSelect = el('select', { className: 'interval-select' },
-    el('option', { value: '1' }, 'Last 24 hours'),
-    el('option', { value: '3' }, 'Last 3 days'),
-    el('option', { value: '7', selected: 'selected' }, 'Last 7 days'),
-  );
+  // Segment control for interval selection
+  const intervals = [
+    { value: 1, label: '24h' },
+    { value: 3, label: '3 days' },
+    { value: 7, label: '7 days' },
+  ];
+
+  const segmentControl = el('div', { className: 'segment-control' });
+  const buttons = [];
+
+  for (const item of intervals) {
+    const btn = el('button', {
+      className: `segment-control__btn${item.value === interval ? ' segment-control__btn--active' : ''}`,
+      onClick: () => {
+        interval = item.value;
+        buttons.forEach((b) =>
+          b.classList.toggle('segment-control__btn--active', b === btn),
+        );
+        loadData();
+      },
+    }, item.label);
+    buttons.push(btn);
+    segmentControl.appendChild(btn);
+  }
+
+  const resultCount = el('span', { className: 'result-count' });
 
   const header = el('div', { className: 'view-header' },
     searchInput,
-    intervalSelect,
+    el('div', { className: 'view-header__right' },
+      resultCount,
+      segmentControl,
+    ),
   );
 
   const tableContainer = el('div', { className: 'table-container' });
@@ -37,6 +62,8 @@ export function renderPastNets(container) {
   function renderTable(nets) {
     tableContainer.innerHTML = '';
     loading.style.display = 'none';
+
+    resultCount.textContent = `${nets.length} nets`;
 
     if (nets.length === 0) {
       tableContainer.appendChild(el('p', { className: 'empty-state' }, 'No past nets found.'));
@@ -97,11 +124,6 @@ export function renderPastNets(container) {
     debounceTimer = setTimeout(loadData, 300);
   });
 
-  intervalSelect.addEventListener('change', (e) => {
-    interval = parseInt(e.target.value, 10);
-    loadData();
-  });
-
   loadData();
 
   return () => {
@@ -116,10 +138,12 @@ export function renderPastNetDetail(container, params) {
 
   const backLink = el('a', { className: 'back-link', href: '#/past' }, '\u2190 Back to past nets');
   const title = el('h2', { className: 'view-title' }, decodeURIComponent(netName));
-  const subtitle = el('span', { className: 'view-subtitle' }, '(closed)');
+  const subtitle = el('span', { className: 'view-subtitle' }, 'closed');
+  const checkinCount = el('span', { className: 'checkin-count' });
 
   const headerRow = el('div', { className: 'view-header' },
     el('div', { className: 'view-header__left' }, backLink, title, subtitle),
+    el('div', { className: 'view-header__right' }, checkinCount),
   );
 
   const tableContainer = el('div', { className: 'table-container' });
@@ -134,6 +158,8 @@ export function renderPastNetDetail(container, params) {
       loading.style.display = 'none';
       const checkins = data.checkins || [];
 
+      checkinCount.textContent = `${checkins.length} checkins`;
+
       if (checkins.length === 0) {
         tableContainer.appendChild(el('p', { className: 'empty-state' }, 'No checkins found.'));
         return;
@@ -145,6 +171,7 @@ export function renderPastNetDetail(container, params) {
           el('th', {}, '#'),
           el('th', {}, 'Callsign'),
           el('th', {}, 'Name'),
+          el('th', {}, 'Status'),
           el('th', {}, 'Location'),
           el('th', {}, 'Grid'),
           el('th', {}, 'Remarks'),
@@ -154,14 +181,16 @@ export function renderPastNetDetail(container, params) {
 
       const tbody = el('tbody');
       for (const c of checkins) {
+        const statusClass = getStatusClass(c.statusType || 'regular');
         const location = [c.cityCountry, c.state, c.country]
           .filter((s) => s && s.trim())
           .join(', ');
 
-        const row = el('tr', { className: 'checkin-row' },
+        const row = el('tr', { className: ['checkin-row', statusClass].filter(Boolean).join(' ') },
           el('td', {}, String(c.serialNo)),
           el('td', { className: 'checkin-row__callsign' }, c.callsign),
           el('td', {}, c.preferredName || c.firstName),
+          el('td', {}, c.statusLabel || ''),
           el('td', {}, location),
           el('td', {}, c.grid),
           el('td', {}, c.remarks),
