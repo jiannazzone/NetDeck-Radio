@@ -171,9 +171,11 @@ export function renderPastNetDetail(container, params) {
   const subtitle = el('span', { className: 'view-subtitle' }, 'closed');
   const checkinCount = el('span', { className: 'checkin-count' });
 
+  const titleGroup = el('div', { className: 'view-title-group' }, backLink, title, subtitle);
+
   const headerRow = el('div', { className: 'view-header' },
-    el('div', { className: 'view-header__left' }, backLink, title, subtitle),
-    el('div', { className: 'view-header__right' }, checkinCount),
+    el('div', { className: 'view-header__left' }, titleGroup),
+    el('div', { className: 'view-header__stats' }, checkinCount),
   );
 
   const tableContainer = el('div', { className: 'table-container' });

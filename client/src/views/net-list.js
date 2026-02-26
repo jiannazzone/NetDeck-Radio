@@ -111,9 +111,11 @@ export function renderNetList(container) {
     searchInput,
     el('div', { className: 'view-header__right' },
       sortControl,
-      liveIndicator,
-      netCount,
-      freshnessBadge,
+      el('div', { className: 'view-status' },
+        liveIndicator,
+        netCount,
+        freshnessBadge,
+      ),
     ),
   );
 

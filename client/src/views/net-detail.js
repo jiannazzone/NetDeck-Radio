@@ -37,11 +37,11 @@ export function renderNetDetail(container, params) {
   const freshnessBadge = el('span', { className: 'freshness-badge' });
   const checkinCount = el('span', { className: 'checkin-count' });
 
-  const titleGroup = el('div', { className: 'view-title-group' }, title, subtitle);
+  const titleGroup = el('div', { className: 'view-title-group' }, backLink, title, subtitle);
 
   const headerRow = el('div', { className: 'view-header' },
-    el('div', { className: 'view-header__left' }, backLink, titleGroup),
-    el('div', { className: 'view-header__right' }, checkinCount, freshnessBadge),
+    el('div', { className: 'view-header__left' }, titleGroup),
+    el('div', { className: 'view-header__stats' }, checkinCount, freshnessBadge),
   );
 
   // Fetch net metadata to show frequency/band
