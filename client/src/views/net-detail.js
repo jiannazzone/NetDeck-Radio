@@ -4,7 +4,7 @@ import { getStatusClass } from '../utils/status-colors.js';
 import { sortCheckins } from '../utils/checkin-sort.js';
 import { buildStatusLegend, buildCheckinThead, getCheckinRowCells, buildCheckinRowTds } from '../utils/checkin-table.js';
 import { sse } from '../sse.js';
-import { getCheckins, getActiveNets } from '../api.js';
+import { getCheckins, getActiveNets, getPastNets } from '../api.js';
 
 export function renderNetDetail(container, params) {
   const { serverName, netName } = params;
@@ -213,9 +213,41 @@ export function renderNetDetail(container, params) {
   // Subscribe to SSE updates
   sse.removeAllListeners();
   sse.on('checkins', onUpdate);
+  sse.on('net-closed', onNetClosed);
   sse.connect({ subscribe: 'checkins', serverName, netName });
 
   ageTimer = setInterval(updateFreshness, 1000);
+
+  function onNetClosed() {
+    clearInterval(ageTimer);
+    freshnessBadge.textContent = 'Net closed';
+    freshnessBadge.classList.add('freshness-badge--closed');
+
+    const banner = el('div', { className: 'net-closed-banner' },
+      el('span', {}, 'This net has closed.'),
+      el('a', {
+        className: 'net-closed-banner__link',
+        href: '#',
+        onclick: async (e) => {
+          e.preventDefault();
+          try {
+            const data = await getPastNets(1);
+            const match = (data.nets || []).find(
+              (n) => n.serverName === serverName && n.netName === netName,
+            );
+            if (match) {
+              location.hash = `#/past/${encodeURIComponent(serverName)}/${encodeURIComponent(netName)}/${encodeURIComponent(match.netId)}`;
+            } else {
+              location.hash = '#/past';
+            }
+          } catch {
+            location.hash = '#/past';
+          }
+        },
+      }, 'View in Past Nets \u2192'),
+    );
+    container.insertBefore(banner, headerRow.nextSibling);
+  }
 
   function onCallsignChange(e) {
     myCallsign = (e.detail?.callsign || '').toUpperCase();

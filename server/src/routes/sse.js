@@ -39,6 +39,7 @@ sseRouter.get('/', (req, res) => {
   // Subscribe to live updates
   const onNets = (data) => send('nets', data);
   const onCheckins = (data) => send('checkins', data);
+  const onNetClosed = (data) => send('net-closed', data);
 
   if (subscribe === 'nets') {
     poller.on('nets', onNets);
@@ -46,7 +47,9 @@ sseRouter.get('/', (req, res) => {
 
   if (subscribe === 'checkins' && serverName && netName) {
     const eventKey = `checkins:${serverName}:${netName}`;
+    const closedKey = `net-closed:${serverName}:${netName}`;
     poller.on(eventKey, onCheckins);
+    poller.once(closedKey, onNetClosed);
     poller.addWatcher(serverName, netName);
   }
 
@@ -68,7 +71,9 @@ sseRouter.get('/', (req, res) => {
 
     if (subscribe === 'checkins' && serverName && netName) {
       const eventKey = `checkins:${serverName}:${netName}`;
+      const closedKey = `net-closed:${serverName}:${netName}`;
       poller.removeListener(eventKey, onCheckins);
+      poller.removeListener(closedKey, onNetClosed);
       poller.removeWatcher(serverName, netName);
     }
   });

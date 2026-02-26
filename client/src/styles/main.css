@@ -1045,6 +1045,31 @@ a:hover {
   flex-shrink: 0;
 }
 
+/* === NET CLOSED BANNER === */
+.net-closed-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  background: var(--surface-2);
+  border: 1px solid var(--border-2);
+  border-left: 3px solid var(--amber);
+  border-radius: var(--radius-sm);
+  color: var(--text-2);
+  font-size: 0.875rem;
+}
+
+.net-closed-banner__link {
+  color: var(--amber);
+  white-space: nowrap;
+}
+
+.freshness-badge--closed {
+  color: var(--text-3);
+}
+
 /* === FOCUS-VISIBLE === */
 .app-header__link:focus-visible,
 .net-card:focus-visible,

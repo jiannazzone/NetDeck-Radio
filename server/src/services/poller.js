@@ -130,6 +130,7 @@ export class Poller extends EventEmitter {
     } catch (err) {
       if (err.code === 404 && watcher) {
         console.log(`[Poller] Net "${netName}" no longer active, removing watcher`);
+        this.emit(`net-closed:${serverName}:${netName}`, { serverName, netName });
         this.checkinWatchers.delete(key);
       } else {
         console.error(`[Poller] Failed to poll checkins for ${netName}:`, err.message);
