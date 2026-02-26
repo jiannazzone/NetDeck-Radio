@@ -167,7 +167,7 @@ export function renderPastNetDetail(container, params) {
   container.innerHTML = '';
 
   const backLink = el('a', { className: 'back-link', href: '#/past' }, '\u2190 Back to past nets');
-  const title = el('h2', { className: 'view-title' }, decodeURIComponent(netName));
+  const title = el('h2', { className: 'view-title' }, netName);
   const subtitle = el('span', { className: 'view-subtitle' }, 'closed');
   const checkinCount = el('span', { className: 'checkin-count' });
 

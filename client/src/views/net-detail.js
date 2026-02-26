@@ -4,7 +4,7 @@ import { getStatusClass } from '../utils/status-colors.js';
 import { sortCheckins } from '../utils/checkin-sort.js';
 import { buildStatusLegend, buildCheckinThead, getCheckinRowCells, buildCheckinRowTds } from '../utils/checkin-table.js';
 import { sse } from '../sse.js';
-import { getCheckins } from '../api.js';
+import { getCheckins, getActiveNets } from '../api.js';
 
 export function renderNetDetail(container, params) {
   const { serverName, netName } = params;
@@ -32,14 +32,32 @@ export function renderNetDetail(container, params) {
   container.innerHTML = '';
 
   const backLink = el('a', { className: 'back-link', href: '#/' }, '\u2190 Back to nets');
-  const title = el('h2', { className: 'view-title' }, decodeURIComponent(netName));
+  const title = el('h2', { className: 'view-title' }, netName);
+  const subtitle = el('span', { className: 'view-subtitle' });
   const freshnessBadge = el('span', { className: 'freshness-badge' });
   const checkinCount = el('span', { className: 'checkin-count' });
 
+  const titleGroup = el('div', { className: 'view-title-group' }, title, subtitle);
+
   const headerRow = el('div', { className: 'view-header' },
-    el('div', { className: 'view-header__left' }, backLink, title),
+    el('div', { className: 'view-header__left' }, backLink, titleGroup),
     el('div', { className: 'view-header__right' }, checkinCount, freshnessBadge),
   );
+
+  // Fetch net metadata to show frequency/band
+  getActiveNets().then((data) => {
+    const net = (data.nets || []).find((n) => n.serverName === serverName && n.netName === netName);
+    if (!net) return;
+    const parts = [];
+    const freq = net.frequency || net.altNetName;
+    if (freq) parts.push(el('span', { className: 'view-subtitle__freq' }, freq));
+    if (net.mode) parts.push(document.createTextNode(` ${net.mode}`));
+    if (net.band) {
+      if (parts.length) parts.push(document.createTextNode(' \u00b7 '));
+      parts.push(el('span', { className: 'view-subtitle__band' }, net.band));
+    }
+    parts.forEach((p) => subtitle.appendChild(p));
+  }).catch(() => {});
 
   const tableContainer = el('div', { className: 'table-container' });
   const loading = el('div', { className: 'loading' }, 'Loading checkins...');
