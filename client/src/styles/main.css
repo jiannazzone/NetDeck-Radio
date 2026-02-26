@@ -524,26 +524,31 @@ a:hover {
   letter-spacing: -0.01em;
 }
 
+.net-card__freq-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
 .net-card__freq {
   font-family: var(--font-mono);
   font-size: calc(15px * var(--font-scale));
   font-weight: 500;
   color: var(--amber);
-  margin-bottom: 4px;
   text-shadow: 0 0 12px rgba(232, 161, 53, 0.2);
 }
 
 .net-card__band {
-  display: inline-block;
   font-family: var(--font-mono);
-  font-size: calc(12px * var(--font-scale));
+  font-size: calc(15px * var(--font-scale));
   font-weight: 600;
   background: var(--amber-dim);
   color: var(--amber);
-  padding: 2px 9px;
+  padding: 2px 12px;
   border-radius: 20px;
-  margin-bottom: 12px;
   letter-spacing: 0.02em;
+  flex-shrink: 0;
 }
 
 .net-card__meta {
@@ -756,6 +761,30 @@ a:hover {
   text-shadow: 0 0 8px rgba(232, 161, 53, 0.25);
 }
 
+/* === MY CALLSIGN HIGHLIGHT === */
+.checkin-row--mine {
+  background: rgba(56, 189, 248, 0.08);
+}
+
+.checkin-row--mine td:first-child {
+  position: relative;
+}
+
+.checkin-row--mine td:first-child::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: #38bdf8;
+  border-radius: 0 2px 2px 0;
+}
+
+.checkin-row--mine .checkin-row__callsign {
+  color: #38bdf8;
+}
+
 /* === STATUS ROW COLORS === */
 .status--net-control { background: rgba(167, 139, 250, 0.08); }
 .status--net-control .checkin-row__callsign { color: var(--status-nc); }
@@ -801,6 +830,135 @@ a:hover {
   color: var(--amber);
 }
 
+/* === SETTINGS POPOVER === */
+.settings-wrap {
+  position: relative;
+}
+
+.settings-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text-2);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.settings-btn:hover {
+  background: var(--surface-2);
+  border-color: var(--amber-soft);
+  color: var(--amber);
+}
+
+.settings-popover {
+  display: none;
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  min-width: 220px;
+  background: var(--surface-2);
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  z-index: 200;
+}
+
+.settings-popover--open {
+  display: block;
+  animation: popoverIn 0.15s ease-out;
+}
+
+.settings-popover--closing {
+  animation: popoverOut 0.12s ease-in forwards;
+}
+
+@keyframes popoverIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes popoverOut {
+  from { opacity: 1; transform: translateY(0); }
+  to   { opacity: 0; transform: translateY(-4px); }
+}
+
+.settings-popover__label {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-3);
+  margin-bottom: 6px;
+}
+
+.settings-popover__row {
+  display: flex;
+  gap: 6px;
+}
+
+.settings-popover__input {
+  flex: 1;
+  min-width: 0;
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.settings-popover__input:focus {
+  border-color: var(--amber-soft);
+  box-shadow: 0 0 0 3px rgba(232, 161, 53, 0.08);
+}
+
+.settings-popover__input::placeholder {
+  color: var(--text-4);
+  font-weight: 400;
+}
+
+.settings-popover__confirm {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text-3);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.settings-popover__confirm:hover {
+  background: rgba(62, 207, 142, 0.1);
+  border-color: var(--green);
+  color: var(--green);
+}
+
+.settings-popover__confirm svg {
+  display: block;
+}
+
+.settings-popover__hint {
+  display: block;
+  margin-top: 6px;
+  font-size: 11px;
+  color: var(--text-4);
+}
+
 /* === STATUS LEGEND === */
 .status-legend {
   display: flex;
@@ -831,7 +989,8 @@ a:hover {
 .back-link:focus-visible,
 .past-net-row:focus-visible,
 .retry-btn:focus-visible,
-.font-size-btn:focus-visible {
+.font-size-btn:focus-visible,
+.settings-btn:focus-visible {
   outline: none;
   box-shadow: 0 0 0 2px var(--amber-soft);
 }
@@ -881,6 +1040,11 @@ a:hover {
 
   .checkin-row--pointer td:first-child,
   .checkin-row--pointer td:nth-child(2) {
+    background: rgba(14, 18, 25, 0.92);
+  }
+
+  .checkin-row--mine td:first-child,
+  .checkin-row--mine td:nth-child(2) {
     background: rgba(14, 18, 25, 0.92);
   }
 

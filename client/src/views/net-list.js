@@ -18,7 +18,7 @@ export function renderNetList(container) {
   let ageTimer = null;
   let searchTimer = null;
 
-  const cardMap = new Map(); // key -> { card, nameEl, freqEl, bandEl, metaEl, statsEl, net }
+  const cardMap = new Map(); // key -> { card, nameEl, freqEl, bandEl, freqRow, metaEl, statsEl, net }
   let isFirstRender = true;
 
   container.innerHTML = '';
@@ -133,13 +133,14 @@ export function renderNetList(container) {
 
     const nameEl = el('h3', { className: 'net-card__name' }, net.netName);
     const freqEl = el('div', { className: 'net-card__freq' }, freqText);
-    const bandEl = net.band ? el('div', { className: 'net-card__band' }, net.band) : null;
+    const bandEl = net.band ? el('span', { className: 'net-card__band' }, net.band) : null;
+    const freqRowChildren = [freqEl];
+    if (bandEl) freqRowChildren.push(bandEl);
+    const freqRow = el('div', { className: 'net-card__freq-row' }, ...freqRowChildren);
     const metaEl = el('div', { className: 'net-card__meta' }, ...metaItems);
     const statsEl = el('div', { className: 'net-card__stats' }, ...statsItems);
 
-    const children = [nameEl, freqEl];
-    if (bandEl) children.push(bandEl);
-    children.push(metaEl, statsEl);
+    const children = [nameEl, freqRow, metaEl, statsEl];
 
     const card = el('a', {
       className: 'net-card',
@@ -163,7 +164,7 @@ export function renderNetList(container) {
       }, { once: true });
     }
 
-    return { card, nameEl, freqEl, bandEl, metaEl, statsEl, net };
+    return { card, nameEl, freqEl, bandEl, freqRow, metaEl, statsEl, net };
   }
 
   function updateCard(entry, net) {
@@ -185,8 +186,8 @@ export function renderNetList(container) {
       if (net.band && entry.bandEl) {
         entry.bandEl.textContent = net.band;
       } else if (net.band && !entry.bandEl) {
-        entry.bandEl = el('div', { className: 'net-card__band' }, net.band);
-        entry.card.insertBefore(entry.bandEl, entry.metaEl);
+        entry.bandEl = el('span', { className: 'net-card__band' }, net.band);
+        entry.freqRow.appendChild(entry.bandEl);
       } else if (!net.band && entry.bandEl) {
         entry.bandEl.remove();
         entry.bandEl = null;

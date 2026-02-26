@@ -25,6 +25,21 @@
         <a href="#/" class="app-header__link">Active Nets</a>
         <a href="#/past" class="app-header__link">Past Nets</a>
         <button class="font-size-btn" aria-label="Change font size" title="Font size">A</button>
+        <div class="settings-wrap">
+          <button class="settings-btn" aria-label="Settings" title="Settings">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          </button>
+          <div class="settings-popover" id="settings-popover">
+            <label class="settings-popover__label" for="callsign-input">My Callsign</label>
+            <div class="settings-popover__row">
+              <input class="settings-popover__input" id="callsign-input" type="text" placeholder="e.g. W1AW" autocomplete="off" spellcheck="false">
+              <button class="settings-popover__confirm" id="callsign-confirm" type="button" aria-label="Confirm callsign" title="Confirm">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              </button>
+            </div>
+            <span class="settings-popover__hint">Saves automatically</span>
+          </div>
+        </div>
       </nav>
     </div>
   </header>
@@ -46,6 +61,88 @@
       if (sizes[idx]) document.documentElement.classList.add(sizes[idx]);
       localStorage.setItem('fontSize', sizes[idx]);
       btn.textContent = labels[idx];
+    });
+  });
+})();
+// Settings popover — callsign persistence
+(function() {
+  document.addEventListener('DOMContentLoaded', function() {
+    var btn = document.querySelector('.settings-btn');
+    var popover = document.getElementById('settings-popover');
+    var input = document.getElementById('callsign-input');
+    var confirmBtn = document.getElementById('callsign-confirm');
+    if (!btn || !popover || !input) return;
+
+    // Load saved callsign
+    var saved = localStorage.getItem('myCallsign') || '';
+    input.value = saved;
+
+    function saveCallsign() {
+      var val = input.value.trim().toUpperCase();
+      input.value = val;
+      localStorage.setItem('myCallsign', val);
+      document.dispatchEvent(new CustomEvent('callsign-change', { detail: { callsign: val } }));
+    }
+
+    function closePopover() {
+      popover.classList.add('settings-popover--closing');
+      popover.addEventListener('animationend', function handler() {
+        popover.classList.remove('settings-popover--open', 'settings-popover--closing');
+        popover.removeEventListener('animationend', handler);
+      });
+    }
+
+    function confirmAndClose() {
+      saveCallsign();
+      closePopover();
+    }
+
+    // Toggle popover
+    btn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      if (popover.classList.contains('settings-popover--open')) {
+        closePopover();
+      } else {
+        popover.classList.add('settings-popover--open');
+        input.focus();
+      }
+    });
+
+    // Close on outside click
+    document.addEventListener('click', function(e) {
+      if (popover.classList.contains('settings-popover--open') && !popover.contains(e.target) && e.target !== btn) {
+        closePopover();
+      }
+    });
+
+    // Close on Escape
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape' && popover.classList.contains('settings-popover--open')) {
+        closePopover();
+      }
+    });
+
+    // Enter key confirms and closes
+    input.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        confirmAndClose();
+      }
+    });
+
+    // Confirm button
+    if (confirmBtn) {
+      confirmBtn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        confirmAndClose();
+      });
+    }
+
+    // Save callsign on input (debounced)
+    var timer;
+    input.addEventListener('input', function() {
+      clearTimeout(timer);
+      timer = setTimeout(saveCallsign, 300);
     });
   });
 })();

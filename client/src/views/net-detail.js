@@ -27,6 +27,7 @@ export function renderNetDetail(container, params) {
   let tbody = null;
   let prevSortKey = null;
   let prevSortDir = null;
+  let myCallsign = (localStorage.getItem('myCallsign') || '').toUpperCase();
 
   container.innerHTML = '';
 
@@ -69,7 +70,8 @@ export function renderNetDetail(container, params) {
 
   function getRowClassName(c, isPointer) {
     const statusClass = getStatusClass(c.statusType || 'regular');
-    return ['checkin-row', statusClass, isPointer ? 'checkin-row--pointer' : '']
+    const isMine = myCallsign && (c.callsign || '').toUpperCase() === myCallsign;
+    return ['checkin-row', statusClass, isPointer ? 'checkin-row--pointer' : '', isMine ? 'checkin-row--mine' : '']
       .filter(Boolean).join(' ');
   }
 
@@ -197,8 +199,16 @@ export function renderNetDetail(container, params) {
 
   ageTimer = setInterval(updateFreshness, 1000);
 
+  function onCallsignChange(e) {
+    myCallsign = (e.detail?.callsign || '').toUpperCase();
+    // Re-diff all rows to update the --mine class
+    renderTable();
+  }
+  document.addEventListener('callsign-change', onCallsignChange);
+
   return () => {
     clearInterval(ageTimer);
+    document.removeEventListener('callsign-change', onCallsignChange);
     sse.removeAllListeners();
     sse.disconnect();
   };
