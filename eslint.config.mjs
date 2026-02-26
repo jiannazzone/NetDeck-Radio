@@ -23,6 +23,7 @@ export default [
         window: 'readonly',
         location: 'readonly',
         requestAnimationFrame: 'readonly',
+        localStorage: 'readonly',
         globalThis: 'readonly',
         process: 'readonly',
       },
