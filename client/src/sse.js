@@ -56,12 +56,6 @@ export class SSEClient {
     }
   }
 
-  reconnect() {
-    if (this._params) {
-      this.connect(this._params);
-    }
-  }
-
   disconnect() {
     if (this.eventSource) {
       this.eventSource.close();
@@ -89,17 +83,6 @@ export class SSEClient {
     }
 
     return wrapped;
-  }
-
-  off(event, wrapped) {
-    if (this.eventSource) {
-      this.eventSource.removeEventListener(event, wrapped);
-    }
-    const callbacks = this.listeners.get(event);
-    if (callbacks) {
-      const idx = callbacks.indexOf(wrapped);
-      if (idx !== -1) callbacks.splice(idx, 1);
-    }
   }
 
   removeAllListeners() {

@@ -5,10 +5,6 @@ export function addRoute(pattern, handler) {
   routes.push({ pattern, handler });
 }
 
-export function navigate(hash) {
-  location.hash = hash;
-}
-
 function matchRoute(hash) {
   const path = hash.replace(/^#/, '') || '/';
 

@@ -10,7 +10,7 @@ export const STATUS_LEGEND = [
   ['Working', '#e8a135'],
 ];
 
-export const STATUS_CLASSES = {
+const STATUS_CLASSES = {
   'net-control': 'status--net-control',
   'logger': 'status--logger',
   'relayed': 'status--relayed',

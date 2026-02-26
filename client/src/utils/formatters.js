@@ -6,13 +6,6 @@ export function formatAge(ms) {
   return `${minutes}m ago`;
 }
 
-export function formatFrequency(freq) {
-  if (!freq) return '';
-  const num = parseFloat(freq);
-  if (isNaN(num)) return freq;
-  return num.toFixed(freq.includes('.') ? freq.split('.')[1]?.length || 0 : 0);
-}
-
 export function formatDateTime(dateStr) {
   if (!dateStr) return '';
   try {

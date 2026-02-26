@@ -1,7 +1,8 @@
-import { el } from '../utils/dom.js';
+import { el, showError, clearError } from '../utils/dom.js';
 import { formatAge } from '../utils/formatters.js';
-import { getStatusClass, STATUS_LEGEND } from '../utils/status-colors.js';
-import { SORTABLE_COLUMNS, sortCheckins } from '../utils/checkin-sort.js';
+import { getStatusClass } from '../utils/status-colors.js';
+import { sortCheckins } from '../utils/checkin-sort.js';
+import { buildStatusLegend, buildCheckinThead, getCheckinRowCells, buildCheckinRowTds } from '../utils/checkin-table.js';
 import { sse } from '../sse.js';
 import { getCheckins } from '../api.js';
 
@@ -42,14 +43,7 @@ export function renderNetDetail(container, params) {
   const tableContainer = el('div', { className: 'table-container' });
   const loading = el('div', { className: 'loading' }, 'Loading checkins...');
 
-  const legend = el('div', { className: 'status-legend' },
-    ...STATUS_LEGEND.map(([label, color]) =>
-      el('span', { className: 'status-legend__item' },
-        el('span', { className: 'status-legend__dot', style: `background:${color}` }),
-        label,
-      )
-    ),
-  );
+  const legend = buildStatusLegend();
 
   container.appendChild(headerRow);
   container.appendChild(loading);
@@ -73,45 +67,10 @@ export function renderNetDetail(container, params) {
     renderTable();
   }
 
-  function getRowCells(c) {
-    const location = [c.cityCountry, c.state, c.country]
-      .filter((s) => s && s.trim())
-      .join(', ');
-    const dxcc = c.dxccName
-      ? [c.dxccFlag, c.dxccName].filter(Boolean).join(' ')
-      : '\u2014';
-    return [
-      String(c.serialNo),
-      c.callsign || '\u2014',
-      c.preferredName || c.firstName || '\u2014',
-      c.statusLabel || '',
-      location || '\u2014',
-      c.grid || '\u2014',
-      dxcc,
-      c.remarks || '\u2014',
-    ];
-  }
-
   function getRowClassName(c, isPointer) {
     const statusClass = getStatusClass(c.statusType || 'regular');
     return ['checkin-row', statusClass, isPointer ? 'checkin-row--pointer' : '']
       .filter(Boolean).join(' ');
-  }
-
-  function buildThead() {
-    const headerCells = SORTABLE_COLUMNS.map((col) => {
-      const isActive = sortColumn === col.key;
-      const indicator = isActive
-        ? el('span', { className: 'sort-indicator' }, sortDirection === 'asc' ? '\u25B2' : '\u25BC')
-        : null;
-      return el('th', {
-        scope: 'col',
-        className: 'sortable',
-        onClick: () => handleSort(col.key),
-      }, col.label, indicator);
-    });
-    headerCells.push(el('th', { scope: 'col' }, 'Remarks'));
-    return el('thead', {}, el('tr', {}, ...headerCells));
   }
 
   function renderTable() {
@@ -136,7 +95,7 @@ export function renderNetDetail(container, params) {
     if (!table) {
       tableContainer.innerHTML = '';
       table = el('table', { className: 'checkin-table' });
-      table.appendChild(buildThead());
+      table.appendChild(buildCheckinThead(sortColumn, sortDirection, handleSort));
       tbody = el('tbody');
       table.appendChild(tbody);
       tableContainer.appendChild(table);
@@ -148,7 +107,7 @@ export function renderNetDetail(container, params) {
     if (sortColumn !== prevSortKey || sortDirection !== prevSortDir) {
       const oldThead = table.querySelector('thead');
       if (oldThead) oldThead.remove();
-      table.insertBefore(buildThead(), tbody);
+      table.insertBefore(buildCheckinThead(sortColumn, sortDirection, handleSort), tbody);
       prevSortKey = sortColumn;
       prevSortDir = sortDirection;
     }
@@ -159,7 +118,7 @@ export function renderNetDetail(container, params) {
     // Diff rows: update existing, create new
     for (const c of sorted) {
       const isPointer = c.serialNo === pointer;
-      const cells = getRowCells(c);
+      const cells = getCheckinRowCells(c);
       const className = getRowClassName(c, isPointer);
       const existing = rowMap.get(c.serialNo);
 
@@ -180,16 +139,7 @@ export function renderNetDetail(container, params) {
         tbody.appendChild(existing.row);
       } else {
         // Create new row
-        const cellEls = [
-          el('td', {}, cells[0]),
-          el('td', { className: 'checkin-row__callsign' }, cells[1]),
-          el('td', {}, cells[2]),
-          el('td', {}, cells[3]),
-          el('td', {}, cells[4]),
-          el('td', {}, cells[5]),
-          el('td', {}, cells[6]),
-          el('td', {}, cells[7]),
-        ];
+        const cellEls = buildCheckinRowTds(cells);
         const row = el('tr', { className }, ...cellEls);
         tbody.appendChild(row);
         rowMap.set(c.serialNo, { row, cellEls, cellValues: cells, className });
@@ -220,8 +170,7 @@ export function renderNetDetail(container, params) {
     age = data.age ?? 0;
     lastUpdate = Date.now();
     loading.style.display = 'none';
-    const existingError = container.querySelector('.error-state');
-    if (existingError) existingError.remove();
+    clearError(container);
     renderTable();
     updateFreshness();
   }
@@ -229,19 +178,12 @@ export function renderNetDetail(container, params) {
   function loadCheckins() {
     loading.style.display = '';
     loading.textContent = 'Loading checkins...';
-    const existingError = container.querySelector('.error-state');
-    if (existingError) existingError.remove();
+    clearError(container);
 
     getCheckins(serverName, netName).then(onUpdate).catch((err) => {
       loading.style.display = 'none';
       console.error(err);
-      const existingErr = container.querySelector('.error-state');
-      if (existingErr) existingErr.remove();
-      const errorDiv = el('div', { className: 'error-state' },
-        el('p', {}, 'Failed to load checkins.'),
-        el('button', { className: 'retry-btn', onClick: loadCheckins }, 'Retry'),
-      );
-      container.insertBefore(errorDiv, tableContainer);
+      showError(container, tableContainer, 'Failed to load checkins.', loadCheckins);
     });
   }
 

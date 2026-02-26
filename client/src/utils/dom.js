@@ -22,8 +22,16 @@ export function el(tag, attrs = {}, ...children) {
   return element;
 }
 
-export function escapeHtml(str) {
-  const div = document.createElement('div');
-  div.textContent = str;
-  return div.innerHTML;
+export function clearError(container) {
+  const existing = container.querySelector('.error-state');
+  if (existing) existing.remove();
+}
+
+export function showError(parent, beforeEl, message, onRetry) {
+  clearError(parent);
+  const errorDiv = el('div', { className: 'error-state' },
+    el('p', {}, message),
+    el('button', { className: 'retry-btn', onClick: onRetry }, 'Retry'),
+  );
+  parent.insertBefore(errorDiv, beforeEl);
 }

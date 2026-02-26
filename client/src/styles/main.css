@@ -29,7 +29,6 @@
 
   /* Live / active signal — green */
   --green: #3ecf8e;
-  --green-dim: rgba(62, 207, 142, 0.12);
 
   /* Text hierarchy */
   --text: #dfe3eb;
@@ -42,19 +41,16 @@
   --status-logger: #c4b5fd;
   --status-relayed: #fb923c;
   --status-vip: #f87171;
-  --status-checked-out: #64748b;
   --status-not-heard: #fbbf24;
   --status-short-time: #2dd4bf;
   --status-no-response: #4ade80;
 
   /* Pointer (currently working station) */
   --pointer-bg: rgba(232, 161, 53, 0.1);
-  --pointer-border: var(--amber);
 
   /* Radii */
   --radius: 10px;
   --radius-sm: 6px;
-  --radius-xs: 4px;
 
   /* Header */
   --header-h: 52px;
@@ -82,7 +78,6 @@ body {
   display: flex;
   flex-direction: column;
   height: 100vh;
-  margin: 0;
   overflow: hidden;
   background: var(--bg);
   background-image: var(--bg-warm);
@@ -215,7 +210,6 @@ a:hover {
   width: 100%;
   margin: 0 auto;
   padding: 24px 20px 20px;
-  box-sizing: border-box;
   transition: opacity 0.12s ease;
 }
 #app.view-exit { opacity: 0; }
@@ -324,17 +318,12 @@ a:hover {
   white-space: nowrap;
 }
 
-.segment-control__btn:hover {
+.segment-control__btn:not(.segment-control__btn--active):hover {
   color: var(--text-2);
   background: var(--surface-2);
 }
 
 .segment-control__btn--active {
-  background: var(--amber-dim);
-  color: var(--amber);
-}
-
-.segment-control__btn--active:hover {
   background: var(--amber-dim);
   color: var(--amber);
 }
@@ -350,6 +339,15 @@ a:hover {
   letter-spacing: 0.08em;
   color: var(--green);
   transition: color 0.2s;
+}
+
+.live-indicator--dim {
+  color: var(--text-4);
+}
+
+.live-indicator--dim .live-dot {
+  background: var(--text-4);
+  animation: none;
 }
 
 .live-indicator--warn {
@@ -386,20 +384,8 @@ a:hover {
   white-space: nowrap;
 }
 
-.net-count {
-  font-size: 12.5px;
-  font-weight: 500;
-  color: var(--text-3);
-  white-space: nowrap;
-}
-
-.checkin-count {
-  font-size: 12.5px;
-  font-weight: 500;
-  color: var(--text-3);
-  white-space: nowrap;
-}
-
+.net-count,
+.checkin-count,
 .result-count {
   font-size: 12.5px;
   font-weight: 500;
@@ -408,7 +394,9 @@ a:hover {
 }
 
 /* === LOADING & EMPTY STATES === */
-.loading {
+.loading,
+.empty-state,
+.error {
   text-align: center;
   padding: 60px 0;
   color: var(--text-3);
@@ -431,18 +419,8 @@ a:hover {
   to { transform: rotate(360deg); }
 }
 
-.empty-state {
-  text-align: center;
-  padding: 60px 0;
-  color: var(--text-3);
-  font-size: calc(15px * var(--font-scale));
-}
-
 .error {
-  text-align: center;
-  padding: 60px 0;
   color: var(--status-vip);
-  font-size: calc(15px * var(--font-scale));
 }
 
 .empty-state--dim {
@@ -531,6 +509,10 @@ a:hover {
 
 .net-card--new {
   animation: cardNew 0.5s ease-out;
+}
+
+.net-card--settled {
+  animation: none;
 }
 
 .net-card__name {
@@ -665,6 +647,7 @@ a:hover {
 /* === SORTABLE TABLE HEADERS === */
 .checkin-table th.sortable { cursor: pointer; user-select: none; }
 .checkin-table th.sortable:hover { color: var(--text-2); }
+.checkin-table th.sortable:focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--amber-soft); }
 .sort-indicator { margin-left: 4px; font-size: 0.8em; }
 
 /* === PAST NETS TABLE === */
@@ -685,8 +668,8 @@ a:hover {
   transition: background 0.12s;
 }
 
-.past-net-row:hover {
-  background: var(--surface-2) !important;
+.past-nets-table .past-net-row:hover {
+  background: var(--surface-2);
 }
 
 .past-net-row td:first-child {
@@ -898,7 +881,7 @@ a:hover {
 
   .checkin-row--pointer td:first-child,
   .checkin-row--pointer td:nth-child(2) {
-    background: rgba(14, 18, 25, 0.92) !important;
+    background: rgba(14, 18, 25, 0.92);
   }
 
   .segment-control {

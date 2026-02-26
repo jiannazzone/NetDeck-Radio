@@ -1,11 +1,19 @@
-import { el } from '../utils/dom.js';
+import { el, showError, clearError } from '../utils/dom.js';
 import { formatAge, formatNetDuration } from '../utils/formatters.js';
 import { sse } from '../sse.js';
 import { getActiveNets } from '../api.js';
 
+const SORT_OPTIONS = [
+  { key: 'newest', label: 'Newest' },
+  { key: 'oldest', label: 'Oldest' },
+  { key: 'name', label: 'A–Z' },
+  { key: 'active', label: 'Most Active' },
+];
+
 export function renderNetList(container) {
   let nets = [];
   let searchTerm = '';
+  let sortMode = 'newest';
   let age = null;
   let ageTimer = null;
   let searchTimer = null;
@@ -19,6 +27,7 @@ export function renderNetList(container) {
     className: 'search-bar',
     type: 'text',
     placeholder: 'Search nets...',
+    'aria-label': 'Search nets',
   });
   searchInput.addEventListener('input', (e) => {
     searchTerm = e.target.value;
@@ -34,6 +43,9 @@ export function renderNetList(container) {
     if (state === 'connected') {
       liveIndicator.className = 'live-indicator';
       liveText.textContent = 'Live';
+    } else if (state === 'failed') {
+      liveIndicator.className = 'live-indicator live-indicator--dim';
+      liveText.textContent = 'Disconnected';
     } else {
       liveIndicator.className = 'live-indicator live-indicator--warn';
       liveText.textContent = 'Reconnecting\u2026';
@@ -43,9 +55,29 @@ export function renderNetList(container) {
   const netCount = el('span', { className: 'net-count' });
   const freshnessBadge = el('span', { className: 'freshness-badge' });
 
+  // Segment control for sort selection
+  const sortControl = el('div', { className: 'segment-control' });
+  const sortButtons = [];
+
+  for (const option of SORT_OPTIONS) {
+    const btn = el('button', {
+      className: `segment-control__btn${option.key === sortMode ? ' segment-control__btn--active' : ''}`,
+      onClick: () => {
+        sortMode = option.key;
+        sortButtons.forEach((b) =>
+          b.classList.toggle('segment-control__btn--active', b === btn),
+        );
+        renderCards();
+      },
+    }, option.label);
+    sortButtons.push(btn);
+    sortControl.appendChild(btn);
+  }
+
   const header = el('div', { className: 'view-header' },
     searchInput,
     el('div', { className: 'view-header__right' },
+      sortControl,
       liveIndicator,
       netCount,
       freshnessBadge,
@@ -118,11 +150,16 @@ export function renderNetList(container) {
     if (isFirstRender) {
       // Stagger card entrance animation on initial load
       card.style.animationDelay = `${index * 0.04}s`;
+      card.addEventListener('animationend', () => {
+        card.classList.add('net-card--settled');
+        card.style.animationDelay = '';
+      }, { once: true });
     } else {
       // New net appearing after initial load — green glow entrance
       card.classList.add('net-card--new');
       card.addEventListener('animationend', () => {
         card.classList.remove('net-card--new');
+        card.classList.add('net-card--settled');
       }, { once: true });
     }
 
@@ -222,9 +259,38 @@ export function renderNetList(container) {
     isFirstRender = false;
   }
 
+  function sortNets(list) {
+    const sorted = list.slice();
+    switch (sortMode) {
+      case 'newest':
+        sorted.sort((a, b) => {
+          if (!a.date && !b.date) return 0;
+          if (!a.date) return 1;
+          if (!b.date) return -1;
+          return new Date(b.date) - new Date(a.date);
+        });
+        break;
+      case 'oldest':
+        sorted.sort((a, b) => {
+          if (!a.date && !b.date) return 0;
+          if (!a.date) return 1;
+          if (!b.date) return -1;
+          return new Date(a.date) - new Date(b.date);
+        });
+        break;
+      case 'name':
+        sorted.sort((a, b) => (a.netName || '').localeCompare(b.netName || '', undefined, { sensitivity: 'base' }));
+        break;
+      case 'active':
+        sorted.sort((a, b) => (b.subscriberCount || 0) - (a.subscriberCount || 0));
+        break;
+    }
+    return sorted;
+  }
+
   function renderCards() {
     const filtered = searchTerm
-      ? nets.filter((n) => n.netName.toLowerCase().includes(searchTerm.toLowerCase()))
+      ? nets.filter((n) => (n.netName || '').toLowerCase().includes(searchTerm.toLowerCase()))
       : nets;
 
     netCount.textContent = searchTerm
@@ -241,13 +307,77 @@ export function renderNetList(container) {
       return;
     }
 
-    // Collect cards in filtered order — cards not matching search are simply detached
-    const filteredCards = filtered.map((net) => {
+    // Sort then collect cards — cards not matching search are simply detached
+    const sorted = sortNets(filtered);
+    const filteredCards = sorted.map((net) => {
       const entry = cardMap.get(netKey(net));
       return entry ? entry.card : null;
     }).filter(Boolean);
 
+    // --- FLIP animation for reordering ---
+
+    // FIRST: snapshot current positions of cards already in the grid
+    const beforeRects = new Map();
+    const currentChildren = Array.from(grid.children);
+    for (const child of currentChildren) {
+      if (child.classList && child.classList.contains('net-card')) {
+        beforeRects.set(child, child.getBoundingClientRect());
+      }
+    }
+
+    // Check if order actually changed — skip animation if identical
+    const orderChanged = filteredCards.length !== currentChildren.length ||
+      filteredCards.some((card, i) => card !== currentChildren[i]);
+
+    if (!orderChanged) return;
+
+    // LAST: apply new DOM order
     grid.replaceChildren(...filteredCards);
+
+    // Mark all existing cards as settled so replaceChildren doesn't replay
+    // the cardIn entrance animation (which would fight the FLIP transform)
+    for (const card of filteredCards) {
+      if (beforeRects.has(card)) {
+        card.classList.add('net-card--settled');
+      }
+    }
+
+    // INVERT: for each card that was already visible, compute delta and
+    // apply inverse transform so it visually stays at its old position
+    const movedCards = [];
+    for (const card of filteredCards) {
+      const before = beforeRects.get(card);
+      if (!before) continue; // new card — entrance animation handles it
+
+      const after = card.getBoundingClientRect();
+      const dx = before.left - after.left;
+      const dy = before.top - after.top;
+
+      if (dx === 0 && dy === 0) continue;
+
+      card.style.transform = `translate(${dx}px, ${dy}px)`;
+      card.style.transition = 'none';
+      movedCards.push(card);
+    }
+
+    if (movedCards.length === 0) return;
+
+    // Force reflow so the inverted positions take effect
+    void grid.offsetHeight;
+
+    // PLAY: animate each card from its old position to its new one
+    for (const card of movedCards) {
+      card.style.transition = 'transform 300ms cubic-bezier(0.4, 0, 0.2, 1)';
+      card.style.transform = 'translate(0, 0)';
+
+      card.addEventListener('transitionend', function cleanup(e) {
+        if (e.propertyName === 'transform') {
+          card.style.transition = '';
+          card.style.transform = '';
+          card.removeEventListener('transitionend', cleanup);
+        }
+      });
+    }
   }
 
   function onUpdate(data) {
@@ -263,22 +393,14 @@ export function renderNetList(container) {
   function loadNets() {
     loading.style.display = '';
     loading.textContent = 'Loading active nets...';
-    // Remove any existing error state
-    const existingError = container.querySelector('.error-state');
-    if (existingError) existingError.remove();
+    clearError(container);
 
     getActiveNets().then((data) => {
       onUpdate(data);
     }).catch((err) => {
       loading.style.display = 'none';
       console.error(err);
-      const existingErr = container.querySelector('.error-state');
-      if (existingErr) existingErr.remove();
-      const errorDiv = el('div', { className: 'error-state' },
-        el('p', {}, 'Failed to load nets.'),
-        el('button', { className: 'retry-btn', onClick: loadNets }, 'Retry'),
-      );
-      container.insertBefore(errorDiv, grid);
+      showError(container, grid, 'Failed to load nets.', loadNets);
     });
   }
 
@@ -288,8 +410,7 @@ export function renderNetList(container) {
   // Subscribe to SSE updates
   sse.removeAllListeners();
   sse.on('nets', (data) => {
-    const existingError = container.querySelector('.error-state');
-    if (existingError) existingError.remove();
+    clearError(container);
     onUpdate({ nets: data, age: 0 });
   });
   sse.connect({ subscribe: 'nets' });

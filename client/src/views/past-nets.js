@@ -1,8 +1,9 @@
-import { el } from '../utils/dom.js';
+import { el, showError, clearError } from '../utils/dom.js';
 import { formatDateTime } from '../utils/formatters.js';
 import { getPastNets, getPastNetCheckins } from '../api.js';
-import { getStatusClass, STATUS_LEGEND } from '../utils/status-colors.js';
-import { SORTABLE_COLUMNS, sortCheckins } from '../utils/checkin-sort.js';
+import { getStatusClass } from '../utils/status-colors.js';
+import { sortCheckins } from '../utils/checkin-sort.js';
+import { buildStatusLegend, buildCheckinThead, getCheckinRowCells, buildCheckinRowTds } from '../utils/checkin-table.js';
 
 const INTERVAL_LABELS = { 1: 'last 24 hours', 3: 'last 3 days', 7: 'last 7 days' };
 
@@ -16,6 +17,7 @@ export function renderPastNets(container) {
     className: 'search-bar',
     type: 'text',
     placeholder: 'Search past nets...',
+    'aria-label': 'Search past nets',
   });
 
   // Segment control for interval selection
@@ -93,10 +95,18 @@ export function renderPastNets(container) {
 
     const tbody = el('tbody');
     for (const net of nets) {
+      const navigate = () => {
+        location.hash = `#/past/${encodeURIComponent(net.serverName)}/${encodeURIComponent(net.netName)}/${encodeURIComponent(net.netId)}`;
+      };
       const row = el('tr', {
         className: 'past-net-row',
-        onClick: () => {
-          location.hash = `#/past/${encodeURIComponent(net.serverName)}/${encodeURIComponent(net.netName)}/${encodeURIComponent(net.netId)}`;
+        tabindex: '0',
+        onClick: navigate,
+        onKeydown: (e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            navigate();
+          }
         },
       },
         el('td', {}, net.netName || '\u2014'),
@@ -117,8 +127,7 @@ export function renderPastNets(container) {
     loading.style.display = '';
     loading.textContent = 'Loading past nets...';
     tableContainer.innerHTML = '';
-    const existingError = container.querySelector('.error-state');
-    if (existingError) existingError.remove();
+    clearError(container);
 
     try {
       const data = await getPastNets(interval, searchTerm || undefined);
@@ -126,13 +135,7 @@ export function renderPastNets(container) {
     } catch (err) {
       loading.style.display = 'none';
       console.error(err);
-      const existingErr = container.querySelector('.error-state');
-      if (existingErr) existingErr.remove();
-      const errorDiv = el('div', { className: 'error-state' },
-        el('p', {}, 'Failed to load past nets.'),
-        el('button', { className: 'retry-btn', onClick: loadData }, 'Retry'),
-      );
-      container.insertBefore(errorDiv, tableContainer);
+      showError(container, tableContainer, 'Failed to load past nets.', loadData);
     }
   }
 
@@ -176,14 +179,7 @@ export function renderPastNetDetail(container, params) {
   const tableContainer = el('div', { className: 'table-container' });
   const loading = el('div', { className: 'loading' }, 'Loading checkins...');
 
-  const legend = el('div', { className: 'status-legend' },
-    ...STATUS_LEGEND.map(([label, color]) =>
-      el('span', { className: 'status-legend__item' },
-        el('span', { className: 'status-legend__dot', style: `background:${color}` }),
-        label,
-      )
-    ),
-  );
+  const legend = buildStatusLegend();
 
   container.appendChild(headerRow);
   container.appendChild(loading);
@@ -210,43 +206,15 @@ export function renderPastNetDetail(container, params) {
     }
 
     const table = el('table', { className: 'checkin-table' });
-    const headerCells = SORTABLE_COLUMNS.map((col) => {
-      const isActive = sortColumn === col.key;
-      const indicator = isActive
-        ? el('span', { className: 'sort-indicator' }, sortDirection === 'asc' ? '\u25B2' : '\u25BC')
-        : null;
-      return el('th', {
-        scope: 'col',
-        className: 'sortable',
-        onClick: () => handleSort(col.key),
-      }, col.label, indicator);
-    });
-    headerCells.push(el('th', { scope: 'col' }, 'Remarks'));
-
-    const thead = el('thead', {}, el('tr', {}, ...headerCells));
-    table.appendChild(thead);
+    table.appendChild(buildCheckinThead(sortColumn, sortDirection, handleSort));
 
     const sorted = sortCheckins(checkins, sortColumn, sortDirection);
     const tbody = el('tbody');
     for (const c of sorted) {
       const statusClass = getStatusClass(c.statusType || 'regular');
-      const location = [c.cityCountry, c.state, c.country]
-        .filter((s) => s && s.trim())
-        .join(', ');
-
-      const dxcc = c.dxccName
-        ? [c.dxccFlag, c.dxccName].filter(Boolean).join(' ')
-        : '\u2014';
-
+      const cells = getCheckinRowCells(c);
       const row = el('tr', { className: ['checkin-row', statusClass].filter(Boolean).join(' ') },
-        el('td', {}, String(c.serialNo)),
-        el('td', { className: 'checkin-row__callsign' }, c.callsign || '\u2014'),
-        el('td', {}, c.preferredName || c.firstName || '\u2014'),
-        el('td', {}, c.statusLabel || ''),
-        el('td', {}, location || '\u2014'),
-        el('td', {}, c.grid || '\u2014'),
-        el('td', {}, dxcc),
-        el('td', {}, c.remarks || '\u2014'),
+        ...buildCheckinRowTds(cells),
       );
       tbody.appendChild(row);
     }
@@ -258,8 +226,7 @@ export function renderPastNetDetail(container, params) {
     loading.style.display = '';
     loading.textContent = 'Loading checkins...';
     tableContainer.innerHTML = '';
-    const existingError = container.querySelector('.error-state');
-    if (existingError) existingError.remove();
+    clearError(container);
 
     getPastNetCheckins(serverName, netName, netId)
       .then((data) => {
@@ -270,13 +237,7 @@ export function renderPastNetDetail(container, params) {
       .catch((err) => {
         loading.style.display = 'none';
         console.error(err);
-        const existingErr = container.querySelector('.error-state');
-        if (existingErr) existingErr.remove();
-        const errorDiv = el('div', { className: 'error-state' },
-          el('p', {}, 'Failed to load checkins.'),
-          el('button', { className: 'retry-btn', onClick: loadCheckins }, 'Retry'),
-        );
-        container.insertBefore(errorDiv, tableContainer);
+        showError(container, tableContainer, 'Failed to load checkins.', loadCheckins);
       });
   }
 

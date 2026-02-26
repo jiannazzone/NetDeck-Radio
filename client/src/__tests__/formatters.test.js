@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { formatAge, formatFrequency, formatDateTime, formatNetDuration } from '../utils/formatters.js';
+import { formatAge, formatDateTime, formatNetDuration } from '../utils/formatters.js';
 
 describe('formatAge', () => {
   it('returns "unknown" for null', () => {
@@ -20,27 +20,6 @@ describe('formatAge', () => {
     expect(formatAge(60000)).toBe('1m ago');
     expect(formatAge(120000)).toBe('2m ago');
     expect(formatAge(300000)).toBe('5m ago');
-  });
-});
-
-describe('formatFrequency', () => {
-  it('returns empty string for falsy input', () => {
-    expect(formatFrequency('')).toBe('');
-    expect(formatFrequency(null)).toBe('');
-    expect(formatFrequency(undefined)).toBe('');
-  });
-
-  it('formats frequency with decimal places', () => {
-    expect(formatFrequency('14.300')).toBe('14.300');
-    expect(formatFrequency('7.2')).toBe('7.2');
-  });
-
-  it('formats frequency without decimal', () => {
-    expect(formatFrequency('1000')).toBe('1000');
-  });
-
-  it('returns original string if not a number', () => {
-    expect(formatFrequency('abc')).toBe('abc');
   });
 });
 
