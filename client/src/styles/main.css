@@ -156,24 +156,10 @@ a:hover {
   color: var(--amber);
 }
 
-/* Signal bars icon */
 .app-header__logo-icon {
-  display: flex;
-  align-items: flex-end;
-  gap: 2px;
-  height: 16px;
+  width: 24px;
+  height: 24px;
 }
-
-.app-header__logo-icon span {
-  display: block;
-  width: 3px;
-  background: var(--amber);
-  border-radius: 1px;
-}
-
-.app-header__logo-icon span:nth-child(1) { height: 5px; }
-.app-header__logo-icon span:nth-child(2) { height: 10px; }
-.app-header__logo-icon span:nth-child(3) { height: 16px; }
 
 .app-header__nav {
   display: flex;
