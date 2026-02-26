@@ -4,16 +4,34 @@ import { sse } from '../sse.js';
 import { getActiveNets } from '../api.js';
 
 const SORT_OPTIONS = [
-  { key: 'newest', label: 'Newest' },
-  { key: 'oldest', label: 'Oldest' },
-  { key: 'name', label: 'A–Z' },
-  { key: 'active', label: 'Most Active' },
+  { key: 'time', label: 'Time', defaultDir: 'desc' },
+  { key: 'name', label: 'A–Z', defaultDir: 'asc' },
+  { key: 'active', label: 'Activity', defaultDir: 'desc' },
+  { key: 'frequency', label: 'Frequency', defaultDir: 'asc' },
 ];
+
+const SORT_KEYS = new Set(SORT_OPTIONS.map((o) => o.key));
+
+function loadSortPrefs() {
+  const key = localStorage.getItem('netdeck:sortKey');
+  const dir = localStorage.getItem('netdeck:sortDir');
+  return {
+    sortKey: SORT_KEYS.has(key) ? key : 'time',
+    sortDir: dir === 'asc' || dir === 'desc' ? dir : 'desc',
+  };
+}
+
+function saveSortPrefs(key, dir) {
+  localStorage.setItem('netdeck:sortKey', key);
+  localStorage.setItem('netdeck:sortDir', dir);
+}
 
 export function renderNetList(container) {
   let nets = [];
   let searchTerm = '';
-  let sortMode = 'newest';
+  const savedSort = loadSortPrefs();
+  let sortKey = savedSort.sortKey;
+  let sortDir = savedSort.sortDir;
   let age = null;
   let ageTimer = null;
   let searchTimer = null;
@@ -59,20 +77,35 @@ export function renderNetList(container) {
   const sortControl = el('div', { className: 'segment-control' });
   const sortButtons = [];
 
+  function updateSortButtons() {
+    for (const { btn, option, arrow } of sortButtons) {
+      const isActive = option.key === sortKey;
+      btn.classList.toggle('segment-control__btn--active', isActive);
+      arrow.textContent = isActive ? (sortDir === 'asc' ? ' \u25B2' : ' \u25BC') : '';
+    }
+  }
+
   for (const option of SORT_OPTIONS) {
+    const arrow = el('span', { className: 'sort-indicator' });
     const btn = el('button', {
-      className: `segment-control__btn${option.key === sortMode ? ' segment-control__btn--active' : ''}`,
+      className: `segment-control__btn${option.key === sortKey ? ' segment-control__btn--active' : ''}`,
       onClick: () => {
-        sortMode = option.key;
-        sortButtons.forEach((b) =>
-          b.classList.toggle('segment-control__btn--active', b === btn),
-        );
+        if (sortKey === option.key) {
+          sortDir = sortDir === 'asc' ? 'desc' : 'asc';
+        } else {
+          sortKey = option.key;
+          sortDir = option.defaultDir;
+        }
+        saveSortPrefs(sortKey, sortDir);
+        updateSortButtons();
         renderCards();
       },
-    }, option.label);
-    sortButtons.push(btn);
+    }, option.label, arrow);
+    sortButtons.push({ btn, option, arrow });
     sortControl.appendChild(btn);
   }
+
+  updateSortButtons();
 
   const header = el('div', { className: 'view-header' },
     searchInput,
@@ -262,30 +295,46 @@ export function renderNetList(container) {
 
   function sortNets(list) {
     const sorted = list.slice();
-    switch (sortMode) {
-      case 'newest':
-        sorted.sort((a, b) => {
+    const dir = sortDir === 'desc' ? -1 : 1;
+
+    sorted.sort((a, b) => {
+      switch (sortKey) {
+        case 'time': {
           if (!a.date && !b.date) return 0;
           if (!a.date) return 1;
           if (!b.date) return -1;
-          return new Date(b.date) - new Date(a.date);
-        });
-        break;
-      case 'oldest':
-        sorted.sort((a, b) => {
-          if (!a.date && !b.date) return 0;
-          if (!a.date) return 1;
-          if (!b.date) return -1;
-          return new Date(a.date) - new Date(b.date);
-        });
-        break;
-      case 'name':
-        sorted.sort((a, b) => (a.netName || '').localeCompare(b.netName || '', undefined, { sensitivity: 'base' }));
-        break;
-      case 'active':
-        sorted.sort((a, b) => (b.subscriberCount || 0) - (a.subscriberCount || 0));
-        break;
-    }
+          return (new Date(a.date) - new Date(b.date)) * dir;
+        }
+        case 'name': {
+          if (!a.netName && !b.netName) return 0;
+          if (!a.netName) return 1;
+          if (!b.netName) return -1;
+          return (a.netName).localeCompare(b.netName, undefined, { sensitivity: 'base' }) * dir;
+        }
+        case 'active': {
+          const ac = a.subscriberCount || 0;
+          const bc = b.subscriberCount || 0;
+          if (ac === 0 && bc === 0) return 0;
+          if (ac === 0) return 1;
+          if (bc === 0) return -1;
+          return (ac - bc) * dir;
+        }
+        case 'frequency': {
+          const fa = parseFloat(a.frequency);
+          const fb = parseFloat(b.frequency);
+          const aValid = !isNaN(fa);
+          const bValid = !isNaN(fb);
+          if (!aValid && !bValid) return (a.netName || '').localeCompare(b.netName || '', undefined, { sensitivity: 'base' });
+          if (!aValid) return 1;
+          if (!bValid) return -1;
+          if (fa !== fb) return (fa - fb) * dir;
+          return (a.netName || '').localeCompare(b.netName || '', undefined, { sensitivity: 'base' });
+        }
+        default:
+          return 0;
+      }
+    });
+
     return sorted;
   }
 
