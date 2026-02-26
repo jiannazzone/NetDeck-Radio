@@ -33,12 +33,9 @@ apiRouter.get('/nets/:serverName/:netName/checkins', async (req, res) => {
   const cacheKey = `checkins:${serverName}:${netName}`;
   const meta = cache.getWithMeta(cacheKey);
 
-  if (meta) {
-    return res.json({
-      ...meta.data,
-      age: meta.age,
-      stale: meta.stale,
-    });
+  const isStaleEmpty = meta?.stale && meta.data.checkins?.length === 0;
+  if (meta && !isStaleEmpty) {
+    return res.json({ ...meta.data, age: meta.age, stale: meta.stale });
   }
 
   if (!canMakeRequest('GetCheckins')) {

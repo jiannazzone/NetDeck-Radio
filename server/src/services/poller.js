@@ -148,10 +148,8 @@ export class Poller extends EventEmitter {
       return;
     }
 
-    // Register the watcher — the scheduler will pick it up on its next tick.
-    // No immediate poll here: the REST endpoint already fetches and caches
-    // data before SSE connects, so the client has data immediately.
-    // Setting lastPolled=0 gives this net highest priority in the scheduler.
+    // Register the watcher with lastPolled=0 (highest scheduler priority).
+    // An immediate poll is triggered below via process.nextTick().
     this.checkinWatchers.set(key, {
       refCount: 1,
       serverName,
@@ -161,6 +159,10 @@ export class Poller extends EventEmitter {
     });
 
     console.log(`[Poller] Started watching ${key} (${this.checkinWatchers.size} net${this.checkinWatchers.size === 1 ? '' : 's'} active, polling every ${this.checkinWatchers.size * POLL_INTERVALS.checkins / 1000}s each)`);
+
+    // Trigger immediate poll so SSE delivers data within ~1-2s even if the REST call failed.
+    // pollCheckins() respects rate limits via canMakeRequest() internally.
+    process.nextTick(() => this.pollCheckins(serverName, netName));
   }
 
   removeWatcher(serverName, netName) {
