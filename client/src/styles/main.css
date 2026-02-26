@@ -761,16 +761,16 @@ a:hover {
   text-shadow: 0 0 8px rgba(232, 161, 53, 0.25);
 }
 
-/* === MY CALLSIGN HIGHLIGHT === */
-.checkin-row--mine {
+/* === MY CALLSIGN HIGHLIGHT (yields to --pointer when both present) === */
+.checkin-row--mine:not(.checkin-row--pointer) {
   background: rgba(56, 189, 248, 0.08);
 }
 
-.checkin-row--mine td:first-child {
+.checkin-row--mine:not(.checkin-row--pointer) td:first-child {
   position: relative;
 }
 
-.checkin-row--mine td:first-child::before {
+.checkin-row--mine:not(.checkin-row--pointer) td:first-child::before {
   content: '';
   position: absolute;
   left: 0;
@@ -781,7 +781,7 @@ a:hover {
   border-radius: 0 2px 2px 0;
 }
 
-.checkin-row--mine .checkin-row__callsign {
+.checkin-row--mine:not(.checkin-row--pointer) .checkin-row__callsign {
   color: #38bdf8;
 }
 
@@ -1043,8 +1043,8 @@ a:hover {
     background: rgba(14, 18, 25, 0.92);
   }
 
-  .checkin-row--mine td:first-child,
-  .checkin-row--mine td:nth-child(2) {
+  .checkin-row--mine:not(.checkin-row--pointer) td:first-child,
+  .checkin-row--mine:not(.checkin-row--pointer) td:nth-child(2) {
     background: rgba(14, 18, 25, 0.92);
   }
 
